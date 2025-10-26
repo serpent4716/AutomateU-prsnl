@@ -129,10 +129,10 @@ def process_document(file_content: bytes) -> str:
             full_text = clean_and_flatten(text)   # assumes you already have this
             full_text = correct_text(full_text)   # assumes you already have this
 
-            confidence = compute_confidence(full_text)  # assumes you already have this
-            if confidence < 0.5:
-                print(f"⚠️ Low confidence on page {idx} ({confidence:.2f}) — running LLM correction.")
-                full_text = correct_with_llm(full_text)
+            # confidence = compute_confidence(full_text)  # assumes you already have this
+            # if confidence < 0.5:
+            #     print(f"⚠️ Low confidence on page {idx} ({confidence:.2f}) — running LLM correction.")
+            #     full_text = correct_with_llm(full_text)
 
             final_texts.append(full_text)
 

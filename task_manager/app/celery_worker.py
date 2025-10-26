@@ -5,10 +5,13 @@ from .celery_config import celery_app
 # heavy-lifting logic we want to run in the background.
 from app.utils import populate_database as populate_db
 from app.utils.tasks import fetch_and_store_moodle_tasks
-
+from app.utils import quiz as quiz
 from app import models
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import func, case
+from app.utils.basic_1 import run_full_generation_process
+from sqlalchemy.orm import aliased
 # We import the database URL so the worker knows how to connect to your main SQL database.
 from dotenv import load_dotenv
 load_dotenv()
@@ -53,6 +56,28 @@ def process_document_task(doc_id: str, file_path: str, tag: str, user_id: str):
     # The worker prints this message when the job is complete.
     print(f"CELERY WORKER: Finished job for doc_id: {doc_id}")
     
+@celery_app.task(name="process_quiz_document")
+def process_quiz_document(doc_id: str, file_path: str, tag: str, user_id: str):
+    """
+    This is the Celery task that wraps your existing ingestion pipeline.
+    It takes the same arguments as the original function.
+    """
+
+    print(f"CELERY WORKER: Received job for Quiz doc_id: {doc_id}")
+    
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    db_url = str(DATABASE_URL)
+    
+    quiz.run_quiz_ingestion_pipeline(
+        db_url=db_url,
+        doc_id=doc_id,
+        file_path=file_path,
+        tag=tag,
+        user_id=user_id
+    )
+    
+    print(f"CELERY WORKER: Finished job for Quiz doc_id: {doc_id}")
+
     
 @celery_app.task(name="extract_data_task")
 def extract_data_task(user_id: int):
@@ -79,5 +104,135 @@ def extract_all_users_data_task():
         for user in users:
             extract_data_task.delay(user.id)
         return f"Queued extraction for {len(users)} users"
+    finally:
+        db.close()
+
+@celery_app.task(name="generate_document_task")
+def generate_document_task(output_file_path: str, task_id: str, user_id: int, payload_dict: dict):
+    """
+    Celery worker task.
+    This is now a "thin controller." It finds the existing DB record,
+    updates its status, calls the business logic, and updates the final status.
+    """
+    db= get_standalone_session()
+    
+    db_doc = None
+    try:
+        # 1. Find the DB record (created by the router)
+        print(f"[Task {task_id}] Worker started. Finding DB record...")
+        db_doc = db.query(models.GeneratedDocument).filter(
+            models.GeneratedDocument.id == task_id,
+            models.GeneratedDocument.user_id == user_id
+        ).first()
+
+        if not db_doc:
+            raise Exception(f"Task record {task_id} not found in database.")
+
+        # 2. Update status to PROCESSING
+        db_doc.status = models.GenerationStatus.PROCESSING
+        db.commit()
+        
+        # 3. Call the main logic function
+        # This is the *only* business logic call
+        print(f"[Task {task_id}] Calling doc_generator.run_full_generation_process...")
+        final_path = run_full_generation_process(output_file_path, payload_dict, task_id)
+
+        # 4. Update DB with success
+        print(f"[Task {task_id}] Generation successful. Updating DB status to COMPLETED.")
+        db_doc.status = models.GenerationStatus.COMPLETED
+        db_doc.generated_content = final_path # Store the *actual* final path
+        db.commit()
+        
+        return {"status": "completed", "task_id": task_id}
+
+    except Exception as e:
+        # 5. Update DB with failure
+        print(f"[Task {task_id}] Worker failed: {e}")
+        
+        if db_doc: # If the record was found/created
+            print(f"[Task {task_id}] Updating DB status to FAILED.")
+            db_doc.status = models.GenerationStatus.FAILED
+            db_doc.error_message = str(e)
+            db.commit()
+        else:
+            # Failsafe, in case DB find failed
+            print(f"[Task {task_id}] Could not find DB record to update with failure.")
+        
+        return {"status": "failed", "error": str(e)}
+    
+    finally:
+        if db:
+            db.close()
+
+@celery_app.task(name="update_subject_stats")
+def update_subject_stats(subject_id: int, job_id: str):
+    """
+    A Celery task to recalculate stats.
+    
+    --- UPGRADED LOGIC ---
+    - total_classes_held: Now EXCLUDES cancelled classes.
+    - total_classes_attended: Only counts 'present' classes.
+    """
+    db = get_standalone_session()
+    
+    job = db.query(models.SubjectStatJob).filter(models.SubjectStatJob.id == job_id).first()
+    if not job:
+        print(f"FATAL: SubjectStatJob {job_id} not found.")
+        return
+
+    job.status = models.JobStatusEnum.RUNNING
+    db.commit()
+    
+    try:
+        subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+        if not subject:
+            raise Exception(f"Subject {subject_id} not found.")
+
+        # --- UPGRADED STATS LOGIC ---
+        
+        # Alias for the optional relationship
+        AR = aliased(models.AttendanceRecord)
+
+        # Count 1 if status is 'present', 0 otherwise
+        attended_case = case(
+            (AR.status == models.AttendanceStatus.present, 1),
+            else_=0
+        )
+        
+        # Count 1 if status is NOT 'cancelled' (including NULL/unmarked), 0 otherwise
+        held_case = case(
+            (AR.status == models.AttendanceStatus.cancelled, 0),
+            else_=1
+        )
+
+        stats = (
+            db.query(
+                func.sum(held_case).label("total_held"),
+                func.sum(attended_case).label("total_attended")
+            )
+            .select_from(models.ClassInstance) # Start from ClassInstance
+            .outerjoin(AR, models.ClassInstance.attendance_record) # Use the alias
+            .filter(models.ClassInstance.subject_id == subject_id)
+        ).one()
+        
+        # --- END OF UPGRADED STATS LOGIC ---
+
+        subject.total_classes_held = stats.total_held
+        subject.total_classes_attended = stats.total_attended
+        
+        job.status = models.JobStatusEnum.SUCCESS
+        db.commit()
+        
+        print(f"CELERY TASK SUCCESS (Job ID: {job_id}): Stats updated for Subject {subject_id}")
+        return f"Stats updated for Subject {subject_id}: Held={stats.total_held}, Attended={stats.total_attended}"
+
+    except Exception as e:
+        print(f"!!!!!!!!!!!!!!! CELERY JOB FAILED (Job ID: {job_id}) !!!!!!!!!!!!!!!")
+        # ... (rest of your error handling)
+        db.rollback()
+        job.status = models.JobStatusEnum.FAILURE
+        job.error_message = str(e)
+        db.commit()
+        return f"Error updating stats for Subject {subject_id}: {e}"
     finally:
         db.close()

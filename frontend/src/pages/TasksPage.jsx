@@ -381,7 +381,7 @@ function TaskDialog({ task, onClose, onSave }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60" onClick={onClose}> 
             <div className={`
                     relative flex flex-col w-full max-w-lg max-h-[90vh]
                     bg-white shadow-2xl border rounded-2xl overflow-hidden
@@ -413,7 +413,7 @@ function TaskDialog({ task, onClose, onSave }) {
                                     {/* <option value="notes">Notes</option>  */}
                                 </select>
                             </div>
-                             <div>
+                            <div>
                                 <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                                 <select id="priority" value={formData.priority} onChange={(e) => setFormData(prev => ({...prev, priority: e.target.value}))} className="h-10 w-full rounded-md border px-3 py-2 text-sm">
                                     <option value="low">Low</option>
@@ -429,8 +429,7 @@ function TaskDialog({ task, onClose, onSave }) {
                                 <label htmlFor="estimated_hours" className="block text-sm font-medium text-gray-700 mb-1">Estimated Hours</label>
                                 <input type="number" id="estimated_hours" value={formData.estimated_hours} onChange={(e) => setFormData(prev => ({...prev, estimated_hours: e.target.value}))} className="h-10 w-full rounded-md border px-3 py-2 text-sm"/>
                             </div>
-                        </div>
-                         <div>
+                            <div>
                             <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
                             <div className="flex gap-2">
                                 <input id="tags" value={newTag} onChange={(e) => setNewTag(e.target.value)} className="h-10 w-full rounded-md border px-3 py-2 text-sm"/>
@@ -439,7 +438,15 @@ function TaskDialog({ task, onClose, onSave }) {
                             <div className="flex flex-wrap gap-1 mt-2">
                                 {formData.tags.map(tag => <span key={tag} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium bg-gray-100">{tag}<X className="h-3 w-3 cursor-pointer" onClick={() => removeTag(tag)} /></span>)}
                             </div>
+                            </div>
+                            <div>
+                                <label htmlFor="team_id" className="block text-sm font-medium text-gray-700 mb-1">Team ID</label>
+                                <input type="number" id="team_id" value={formData.team_id} onChange={(e) => setFormData(prev => ({...prev, team_id: e.target.value}))} className="h-10 w-full rounded-md border px-3 py-2 text-sm"/>
+
+
+                            </div>
                         </div>
+                         
                     </div>
                     <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
                         <button type="button" onClick={onClose} className="h-10 px-4 py-2 border rounded-md">Cancel</button>

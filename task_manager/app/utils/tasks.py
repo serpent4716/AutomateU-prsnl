@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 import time
 import re
 import sys
-from app import models 
+import app.models as models 
 from typing import List
-from app import auth
+import app.auth as auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os

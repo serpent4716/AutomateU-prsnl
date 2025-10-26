@@ -1,7 +1,7 @@
 from docx import Document
 import requests
 from docx.shared import Inches, Pt 
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 # from pdf import *
@@ -199,28 +199,41 @@ if __name__ == "__main__":
     roll_no = input("Enter your roll number: ")
     exp_no = input("Enter the experiment number: ")
     aim = input("Enter the aim of the experiment: ")
-    
-    
+    num_problems = int(input("Enter the number of problems: "))
+    problem_statements = {}
+    for i in range(1, num_problems + 1):
+        prob = input(f"Enter the problem statement for problem {i}: ")
+        problem_statements[i] = prob
+    programs = []
+    results = {}
+    for i in range(1, num_problems + 1):
+        print(f"\nFor Program {i}:")
+        prog = input("Enter the program code (or a brief description): ")
+        programs.append(prog)
+        res = input("Enter the path to the result image (or leave blank if none): ")
+        if res:
+            results[i] = res
+            
     
     #------------read the problem statments from the pdf ----------------------------
-    pdf_file_to_read = input("Enter the path to the PDF file: ")
-    extracted_text = read_pdf_text(pdf_file_to_read)
-    if extracted_text is not None:
-        extracted_text += "\n\n"
-        pattern = re.compile(r"^\s*(\d{1,2}[\.\)])\s*(.*?)(?=\n\s*\d{1,2}[\.\)]|\n\s*\n\s*\n|\Z)", re.MULTILINE | re.DOTALL)
+    # pdf_file_to_read = input("Enter the path to the PDF file: ")
+    # extracted_text = read_pdf_text(pdf_file_to_read)
+    # if extracted_text is not None:
+    #     extracted_text += "\n\n"
+    #     pattern = re.compile(r"^\s*(\d{1,2}[\.\)])\s*(.*?)(?=\n\s*\d{1,2}[\.\)]|\n\s*\n\s*\n|\Z)", re.MULTILINE | re.DOTALL)
 
-        problem_statements = {}
-        i = 1
-        for match in pattern.finditer(extracted_text):
-            problem_text = match.group(2).strip()
-            problem_text = re.sub(r'^Problem Statement:\s*', '', problem_text)
-            problem_statements[i] = problem_text
-            i += 1
+    #     problem_statements = {}
+    #     i = 1
+    #     for match in pattern.finditer(extracted_text):
+    #         problem_text = match.group(2).strip()
+    #         problem_text = re.sub(r'^Problem Statement:\s*', '', problem_text)
+    #         problem_statements[i] = problem_text
+    #         i += 1
     #-----------------------------------------
-    num_problems = int(len(problem_statements))
+    # num_problems = int(len(problem_statements))
     #------------------ Extracting the problem statements --------------------------------
-    notebook_file = input("Enter the path to the ipynb file: ")
-    programs, results, images = fix_and_execute_notebook(notebook_file)
+    # notebook_file = input("Enter the path to the ipynb file: ")
+    # programs, results, images = fix_and_execute_notebook(notebook_file)
     #----------------------------------------------------------------------
     
     

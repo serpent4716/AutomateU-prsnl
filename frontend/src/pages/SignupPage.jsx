@@ -15,45 +15,57 @@ export default function SignupPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null); // Clear previous errors
+ const handleSignup = async (e) => {
+   e.preventDefault();
+   setIsLoading(true);
+   setError(null); // Clear previous errors
+   // setSuccess(null); // You might want to add a success state as well
 
-    // Password match check
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords don't match");
-      setIsLoading(false);
-      return;
-    }
+   // Check for minimum password length
+   if (formData.password.length < 8) {
+     setError("Password must be at least 8 characters long");
+     setIsLoading(false);
+     return;
+   }
+   
+   // UPGRADE: Add check for maximum password length
+   if (formData.password.length > 72) {
+     setError("Password cannot be longer than 72 characters");
+     setIsLoading(false);
+     return;
+   }
 
-    // 3. Replace the placeholder logic with a real API call
-    try {
-      // Prepare the data payload for the backend (without confirmPassword)
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      };
+   // Password match check
+   if (formData.password !== formData.confirmPassword) {
+     setError("Passwords don't match");
+     setIsLoading(false);
+     return;
+   }
 
-      // Use the api instance to make a POST request
-      // We assume your user creation endpoint is /users
-      await api.post("/users", payload);
+   try {
+     const payload = {
+       name: formData.name,
+       email: formData.email,
+       password: formData.password,
+     };
 
-      // If the API call is successful:
-      alert("Account created successfully! Please proceed to login.");
-      navigate("/login");
+     await api.post("/users", payload);
 
-    } catch (err) {
-      // If the API call fails:
-      console.error("Registration failed:", err);
-      // Set an error message from the backend response, or a generic one
-      setError(err.response?.data?.detail || "Registration failed. Please try again.");
-    } finally {
-      // This runs whether the request succeeded or failed
-      setIsLoading(false);
-    }
-  };
+     // UPGRADE: Replace alert() with a non-blocking UI update.
+     // For example, you could set a success message and then navigate.
+     // setSuccess("Account created successfully! Redirecting to login...");
+     // Using setTimeout to let the user see the message before redirecting.
+     setTimeout(() => {
+        navigate("/login");
+     }, 2000); // Redirect after 2 seconds
+
+   } catch (err) {
+     console.error("Registration failed:", err);
+     setError(err.response?.data?.detail || "Registration failed. Please try again.");
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

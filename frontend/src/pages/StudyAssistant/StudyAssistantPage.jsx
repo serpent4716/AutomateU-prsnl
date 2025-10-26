@@ -39,9 +39,9 @@ export default function StudyAssistantPage() {
         },
         {
             icon: PenTool,
-            title: "Write",
-            description: "Essays and research papers",
-            path: "/study-assistant/write",
+            title: "Document Generator",
+            description: "Generate your Submission Documents",
+            path: "/study-assistant/docgenerator",
             color: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200",
             iconColor: "text-indigo-600",
         },

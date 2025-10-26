@@ -161,12 +161,62 @@ def get_chroma_db(tag: str):
         persist_directory=persist_path,
         embedding_function=get_embedding_function(),  # or get_embedding_function()
     )
+
+
+def _build_page_topic_map(toc: list, total_pages: int) -> list:
+    """
+    Builds a 0-indexed list where each index corresponds to a page number
+    and the value is the topic title for that page.
+    
+    The 'toc' list from fitz is like: [[level, title, page_num], ...]
+    """
+    # 1. Create a default map for all pages
+    page_map = ["Introduction"] * total_pages
+    if not toc:
+        return page_map
+
+    # 2. Create a sparse map of {page_index: "composite_title"}
+    # We build composite titles for hierarchy (e.g., "Chapter 1: Section 1.1")
+    sparse_topic_map = {}
+    current_headings = {}  # Tracks the title at each level {1: "Chap 1", 2: "Sec 1.1"}
+
+    for level, title, page_num in toc:
+        page_index = page_num - 1  # Convert 1-based page num to 0-based index
+
+        # Skip invalid entries
+        if page_index < 0 or page_index >= total_pages:
+            continue
+
+        # Store this level's title
+        current_headings[level] = title
+        
+        # Create composite title (e.g., "Chap 1: Sec 1.1")
+        composite_title = ": ".join(
+            current_headings[i]
+            for i in sorted(current_headings.keys())
+            if i <= level
+        )
+        
+        # Store the most specific topic for that page
+        sparse_topic_map[page_index] = composite_title
+
+    # 3. Fill in the full map for all pages
+    current_topic = "Introduction"
+    for i in range(total_pages):
+        if i in sparse_topic_map:
+            current_topic = sparse_topic_map[i]
+        page_map[i] = current_topic
+        
+    return page_map
 # --- Core Document Processing Logic ---
 def process_document(file_content: bytes, file_name: str, doc_id: str, user_id: str) -> list[Document]:
     documents = []
 
     try:
         pdf_doc = fitz.open(stream=file_content, filetype="pdf")
+        toc = pdf_doc.get_toc() #
+        total_pages = pdf_doc.page_count #
+        page_topic_map = _build_page_topic_map(toc, total_pages)
         raw_pages = []
         for page_num, page in enumerate(pdf_doc, start=1):
             text = page.get_text()
@@ -176,30 +226,32 @@ def process_document(file_content: bytes, file_name: str, doc_id: str, user_id: 
 
         # Header/footer cleaning
         cleaned_pages = remove_repeating_headers_footers([t for _, t in raw_pages])
-
+       
         for idx, text in enumerate(cleaned_pages, start=1):
+            current_topic = page_topic_map[idx - 1]
             full_text = clean_and_flatten(text)
             full_text = correct_text(full_text)
 
-            confidence = compute_confidence(full_text)
-            if confidence < 0.5:
-                print(f"⚠️ Low confidence on page {idx} ({confidence:.2f}) — running LLM correction.")
-                try:
-                    full_text = correct_with_llm(full_text)
-                except Exception as e:
-                    print(f"❌ LLM correction failed on page {idx}: {e}")
-
+            # not considering confidence check for now as it tasks too long
+            # confidence = compute_confidence(full_text)
+            # if confidence < 0.5:
+            #     print(f"⚠️ Low confidence on page {idx} ({confidence:.2f}) — running LLM correction.")
+            #     try:
+            #         full_text = correct_with_llm(full_text)
+            #     except Exception as e:
+            #         print(f"❌ LLM correction failed on page {idx}: {e}")
             doc = Document(
                 page_content=full_text,
                 metadata={
                     "source": file_name,
                     "doc_id": doc_id,
                     "user_id": user_id,
-                    "page": idx  # exact page number
+                    "page": idx,  # exact page number
+                    "topic": current_topic
                 }
             )
             documents.append(doc)
-
+            
         pdf_doc.close()
         return documents
 
@@ -394,9 +446,8 @@ def run_ingestion_pipeline(db_url: str, doc_id: str, file_path: str, tag: str, u
         db.query(models.Document).filter(models.Document.id == doc_id).update({"status": models.DocumentStatus.FAILED})
         db.commit()
     finally:
-        # 7. Clean up the temporary file and close the DB session
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        
+        print(f"BACKGROUND TASK: Closing DB session for doc_id: {doc_id}.")
         db.close()
 
 

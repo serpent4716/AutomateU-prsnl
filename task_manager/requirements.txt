@@ -28,4 +28,5 @@ redis
 psycopg2-binary
 alembic 
 beautifulsoup4  
-cryptography
+cryptography 
+python-docx
