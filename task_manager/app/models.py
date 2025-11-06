@@ -74,10 +74,11 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     email = Column(String,  unique=True, index=True)
-    hashed_password = Column(String)  #Stores hashed passwords
+    hashed_password = Column(String, nullable=True)  #Stores hashed passwords nullable for google auth
     is_admin = Column(Boolean, default=False)  # <-- Add this
     timezone = Column(String, default="UTC")
     language = Column(String, default="en")
+    is_verified = Column(Boolean, default=False, nullable=False)
     
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="owner", cascade="all, delete-orphan")
@@ -109,7 +110,12 @@ class Task(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"))
     is_moodle_task = Column(Boolean, default=False)  # New field to mark Moodle tasks
-    task_url = Column(String, nullable=True, unique=True)
+    task_url = Column(String, nullable=True, index=True) 
+    
+    # Step 2: Add this "table arguments" block at the *end* of your Task class
+    __table_args__ = (
+        UniqueConstraint('user_id', 'task_url', name='_user_task_url_uc'),
+    )
 class MoodleAccount(Base):
     __tablename__ = "moodle_accounts"
 

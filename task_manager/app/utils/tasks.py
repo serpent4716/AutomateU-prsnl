@@ -790,6 +790,8 @@ def fetch_and_store_moodle_tasks(user_id: int) -> List[models.Task]:
                         task_url=task_url
                     )
                     tasks_to_create.append(new_task)
+                    
+                    existing_tasks[task_url] = new_task
 
         # Add all newly created tasks to the database session
         if tasks_to_create:

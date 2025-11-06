@@ -1,6 +1,4 @@
 from langchain_chroma import Chroma
-from langchain.prompts import ChatPromptTemplate
-from langchain_ollama import OllamaLLM
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from langchain_huggingface import HuggingFaceEmbeddings

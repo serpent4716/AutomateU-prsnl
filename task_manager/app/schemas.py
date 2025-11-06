@@ -91,6 +91,7 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int 
     is_admin: bool
+    is_verified: bool
     class Config:
         from_attributes = True
 
@@ -109,6 +110,13 @@ class PasswordUpdate(BaseModel):
             raise ValueError("New password must be at least 8 characters long")
         return value
 
+class MessageResponse(BaseModel):
+    msg: str
+
+class LoginResponse(BaseModel):
+    message: str
+    csrf_token: str
+    user: User
 
 class MoodleAccountBase(BaseModel):
     username: str

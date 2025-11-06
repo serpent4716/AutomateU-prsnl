@@ -1,0 +1,62 @@
+# === 1. SECRETS ===
+# This is the most important section.
+# It blocks common secret files *everywhere* in your project.
+#
+**/.env
+**/.env.*
+**/*.env
+**/*.env.local
+
+# --- CRITICAL SECURITY REVIEW ---
+# If you have *other* secret files (like 'keys.json' or
+# 'service-account.json'), you MUST add their names here.
+#
+# EXAMPLE:
+# service-account.json
+# my-api-key.pem
+
+
+# === 2. PYTHON / FASTAPI (for your /backend) ===
+
+# Virtual Environments (This is the 1GB folder you missed)
+**/venv/
+**/.venv/
+**/env/
+
+# Caches and compiled files
+**/__pycache__/
+*.py[cod]
+*$py.class$
+
+
+# === 3. NODE.JS / JAVASCRIPT (for your /frontend) ===
+
+# The single biggest one: node_modules
+# (This one rule finds all node_modules folders)
+node_modules/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.vite/
+.output/
+
+
+# === 4. OS & IDE (General Clutter) ===
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/

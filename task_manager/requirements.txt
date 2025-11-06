@@ -19,7 +19,7 @@ pytest
 PyMuPDF
 google-generativeai
 groq
-langchain
+langchain==0.3.27
 langchain_ollama
 langchain_huggingface
 sentence_transformers
@@ -30,3 +30,5 @@ alembic
 beautifulsoup4  
 cryptography 
 python-docx
+itsdangerous
+boto3

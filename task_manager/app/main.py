@@ -26,9 +26,31 @@ from fastapi.staticfiles import StaticFiles
 import app.utils.summarize as summarize 
 import app.utils.tasks as tasks 
 from redis import asyncio as aioredis
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+from pydantic_settings import BaseSettings
+from pydantic import EmailStr
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
+from datetime import timedelta
+import boto3
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
+
+class Settings(BaseSettings):
+    SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_SES_REGION: str
+    SENDER_EMAIL: EmailStr
+    FRONTEND_URL: str = "http://localhost:3000"
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+
+    class Config:
+        env_file = ".env"
+settings = Settings()
+
 app = FastAPI()
 models.Base.metadata.create_all(bind=database.engine)        # ***only good for development, not production***
 os.makedirs(UPLOAD_DOC_DIR, exist_ok=True)
@@ -48,6 +70,8 @@ def get_db():
 origins = ["http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
+    SessionMiddleware, 
+    secret_key=settings.SECRET_KEY,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
@@ -56,7 +80,25 @@ app.add_middleware(
 
 
     
+SES_CLIENT = boto3.client(
+    'ses',
+    region_name=settings.AWS_SES_REGION,
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+)
 
+# Configure itsdangerous Serializer
+URL_SERIALIZER = URLSafeTimedSerializer(settings.SECRET_KEY)
+
+# Configure Authlib Google OAuth
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 async def get_current_active_user(
     request: Request,
@@ -77,6 +119,47 @@ async def get_current_active_user(
         return user
     except HTTPException as e:
         raise e
+    
+def send_verification_email(user_email: str, user_id: int):
+    """
+    Generates a verification token and sends it via AWS SES.
+    """
+    token = URL_SERIALIZER.dumps(user_id, salt='email-verification')
+    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    
+    try:
+        SES_CLIENT.send_email(
+            Source=settings.SENDER_EMAIL,
+            Destination={'ToAddresses': [user_email]},
+            Message={
+                'Subject': {'Data': 'Welcome to AutomateU! Verify Your Email', 'Charset': 'UTF-8'},
+                'Body': {
+                    'Text': {'Data': f'Click to verify: {verification_link}', 'Charset': 'UTF-8'},
+                    'Html': {'Data': f'<p>Welcome to AutomateU! Please click the link to verify your email:</p><p><a href="{verification_link}">Verify My Email</a></p>', 'Charset': 'UTF-8'}
+                }
+            }
+        )
+        print(f"Verification email sent to {user_email}")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        # This HTTP Exception will be caught by the calling endpoint
+        raise HTTPException(status_code=500, detail="Error sending verification email.")
+
+def _set_login_cookies(response: Response, user_id: int):
+    """
+    Centralized function to create and set auth cookies.
+    """
+    csrf_token = auth.create_csrf_token()
+    access_token_expire = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    data_for_jwt = {"sub": str(user_id), "csrf": csrf_token}
+    
+    access_token = auth.create_access_token(
+        data=data_for_jwt, 
+        expires_delta=access_token_expire
+    )
+    
+    auth.set_login_cookies(response, access_token, csrf_token)
+    return csrf_token
     
 @app.get("/")
 def read_root():
@@ -350,35 +433,171 @@ async def ask_question(
 
 @app.post("/users", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    FIXED: Handles standard email/password signup.
+    Creates user as unverified and sends verification email.
+    """
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+        
     hashed_password = auth.get_password_hash(user.password)
-     # Only this email gets admin rights
-    is_admin = user.email == "admin@example.com"
+    is_admin = user.email == "admin@example.com" # Your original logic
 
     db_user = models.User(
         name=user.name,
         email=user.email,
         hashed_password=hashed_password,
-        is_admin=is_admin
+        is_admin=is_admin,
+        is_verified=False  # FIX: Start as unverified
     )
+    
+    # FIX: Commit user to DB *before* sending email
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    try:
+        print(f"Sending verification mail to user ID {db_user.id} at {db_user.email}")
+        send_verification_email(db_user.email, db_user.id)
+    except HTTPException as e:
+        # FIX: Don't delete the user. Just report the error.
+        print(f"Failed to send email, but user {db_user.id} was created.")
+        # We don't re-raise the exception, as user creation was successful.
+        # We can return a special status in the response body if needed.
+        pass
+
     return db_user
 
+@app.post("/login", response_model=schemas.LoginResponse)
+async def login(response: Response, request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    """
+    FIXED: Handles standard email/password login.
+    Checks for password, verification status, and OAuth-only users.
+    """
+    user = db.query(models.User).filter(models.User.email == request.email).first()
+
+    # FIX 1: Check for OAuth-only users
+    if user and not user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account was created with Google. Please log in using Google.",
+        )
+
+    # FIX 2: Standard password check
+    if not user or not auth.verify_password(request.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+        
+    # FIX 3: CRITICAL - Check for verification
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email not verified. Please check your inbox for a verification link.",
+        )
+
+    csrf_token = _set_login_cookies(response, user.id)
+
+    return {"message": "Login successful", "csrf_token": csrf_token, "user": user}
+
+
+@app.get("/auth/verify-email", response_model=schemas.MessageResponse)
+async def verify_email(token: str, db: Session = Depends(get_db)):
+    """
+    FIXED: Endpoint hit by the link in the verification email.
+    Does NOT require a logged-in user.
+    """
+    try:
+        user_id = URL_SERIALIZER.loads(token, salt='email-verification', max_age=86400) # 1 day
+    except SignatureExpired:
+        raise HTTPException(status_code=400, detail="Verification link has expired.")
+    except (BadTimeSignature, Exception):
+        raise HTTPException(status_code=400, detail="Invalid verification link.")
+
+    # FIX: Get user from ID in token, not from a cookie
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    if user.is_verified:
+        return {"msg": "Email is already verified."}
+
+    # FIX: Actually update the user's status
+    user.is_verified = True
+    db.commit()
+    
+    return {"msg": "Email verified successfully. You can now log in."}
+
+# --------------------------------------------------------------------------
+# 7. AUTHENTICATION ENDPOINTS (Google OAuth)
+# --------------------------------------------------------------------------
+
+@app.get('/auth/login/google')
+async def login_google(request: Request):
+    """
+    NEW: Redirects the user to Google's login page.
+    """
+    redirect_uri = request.url_for('auth_google_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get('/auth/google/callback')
+async def auth_google_callback(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    NEW: Handles the callback from Google. Finds or creates the user,
+    then sets the *same* login cookies as the password login.
+    """
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as e:
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google-auth-failed")
+
+    user_info = token.get('userinfo')
+    if not user_info or not user_info.get('email'):
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google-info-failed")
+
+    user_email = user_info['email']
+    user_name = user_info.get('name', 'AutomateU User')
+
+    db_user = db.query(models.User).filter(models.User.email == user_email).first()
+    
+    if not db_user:
+        # User doesn't exist - create them
+        db_user = models.User(
+            name=user_name,
+            email=user_email,
+            hashed_password=None,  # No password for OAuth users
+            is_admin=False,
+            is_verified=True       # Google verifies email for us
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    
+    # User exists, log them in using our centralized cookie function
+    _set_login_cookies(response, db_user.id)
+    
+    # Redirect to the frontend, which will now have the auth cookies
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
+
+
+# --------------------------------------------------------------------------
+# 8. USER MANAGEMENT ENDPOINTS
+# --------------------------------------------------------------------------
+
 @app.put("/users/update", response_model=schemas.User)
-async def update_user_profile(  # Renamed function for clarity
+async def update_user_profile(
     user_update: schemas.UserUpdate,
     current_user: models.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # We already have the user object from the dependency
+    """
+    FIXED: Handles profile updates and email re-verification.
+    """
     db_user = current_user 
 
-    # --- FIX: Handle Email Uniqueness ---
-    # If email is being changed, we MUST check if the new email is taken
+    # FIX: Handle Email Change & Re-verification
     if user_update.email and user_update.email != db_user.email:
         existing_user = db.query(models.User).filter(models.User.email == user_update.email).first()
         if existing_user:
@@ -387,88 +606,64 @@ async def update_user_profile(  # Renamed function for clarity
                 detail="Email already registered by another user."
             )
         db_user.email = user_update.email
+        db_user.is_verified = False # CRITICAL: New email must be re-verified
+        
+        try:
+            send_verification_email(db_user.email, db_user.id)
+        except HTTPException:
+            pass # We still save, but user will be unverified
 
-    # --- FIX: Update all other fields from the schema ---
+    # Update other fields
     if user_update.name is not None:
         db_user.name = user_update.name
-        
     if user_update.timezone is not None:
         db_user.timezone = user_update.timezone
-        
     if user_update.language is not None:
         db_user.language = user_update.language
-
-    # --- FIX: REMOVED Password Logic ---
-    # DO NOT handle password updates here. That's a separate security flow.
 
     db.commit()
     db.refresh(db_user)
     return db_user
 
-
-# --- SUGGESTED UPGRADE: Add this new endpoint for your Password Modal ---
-
-@app.put("/users/change-password")
+@app.put("/users/change-password", response_model=schemas.MessageResponse)
 async def change_user_password(
-    pass_update: schemas.PasswordUpdate,  # This is a new schema you must create
+    pass_update: schemas.PasswordUpdate,
     current_user: models.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # 1. Verify the user's *current* password
+    """
+    FIXED: Blocks OAuth-only users from changing password.
+    """
+    # FIX: Block OAuth-only users
+    if not current_user.hashed_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change password for an account created with Google."
+        )
+
     if not auth.verify_password(pass_update.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=400, 
             detail="Incorrect current password."
         )
 
-    # 2. Hash and save the *new* password
     current_user.hashed_password = auth.get_password_hash(pass_update.new_password)
-    
     db.commit()
     
     return {"msg": "Password updated successfully"}
 
-@app.post("/login")
-async def login(response: Response, request: schemas.LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == request.email).first()
-    if not user or not auth.verify_password(request.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
-    csrf_token = auth.create_csrf_token()
-    access_token_expire = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    data_for_jwt = {"sub": str(user.id), "csrf": csrf_token}
-    access_token = auth.create_access_token(
-        data=data_for_jwt, 
-        expires_delta=access_token_expire
-    )
-    
-    auth.set_login_cookies(response, access_token, csrf_token)
-
-    return {"message": "Login successful", "csrf_token": csrf_token, "user": user}
-
-@app.get("/auth/refresh")
-# --- THE FIX ---
-# 1. Inject `response: Response` into the function signature.
+@app.get("/auth/refresh", response_model=schemas.LoginResponse)
 async def refresh_csrf(request: Request, response: Response, db: Session = Depends(get_db)):
     """
-    This endpoint now correctly generates and SETS a new access_token cookie,
-    in addition to returning a new CSRF token.
+    FIXED: Refreshes both access_token and CSRF token.
     """
+    # Note: validate_csrf=False is safe *here* because we are issuing a new token,
+    # not performing a state-changing action.
     user = auth.get_current_user_from_cookie(request, csrf_token_from_header=None, db=db, validate_csrf=False)
 
-    new_csrf_token = auth.create_csrf_token()
-    access_token_expire = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    data_for_jwt = {"sub": str(user.id), "csrf": new_csrf_token}
-    new_access_token = auth.create_access_token(data=data_for_jwt, expires_delta=access_token_expire)
-
-    # 2. Set the cookies on the *injected* response object.
-    auth.set_login_cookies(response, new_access_token, new_csrf_token)
+    new_csrf_token = _set_login_cookies(response, user.id)
     
-    # 3. Return the JSON body. FastAPI will add this to the same response
-    #    object that now contains the cookies.
-    return {"message": "CSRF refreshed", "csrf_token": new_csrf_token, "user": user}
+    return {"message": "Tokens refreshed", "csrf_token": new_csrf_token, "user": user}
 
 @app.post("/tasks", response_model=schemas.Task)
 async def create_task(
