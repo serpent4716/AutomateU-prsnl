@@ -1,11 +1,54 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo} from "react";
 import { SidebarNavigation } from "../SidebarNavigation";
-import { Send, BookOpen, Trash2, FileText, Paperclip, Tag, AlertTriangle, CheckCircle, Loader, Copy, User, Bot, X } from "lucide-react";
+import { Send, BookOpen, Trash2, FileText, Paperclip, Tag, AlertTriangle, CheckCircle, Loader, Copy, Bot, X , Eye, ChevronDown} from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import api from "../../services/api";
 
 const cn = (...classes) => classes.filter(Boolean).join(' ');
+const Modal = ({ isOpen, onClose, children }) => {
+    if (!isOpen) return null;
 
+    return (
+        <div
+            className="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center p-4"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col p-4"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-center mb-3 border-b pb-2">
+                    <h2 className="text-xl font-semibold text-gray-700">Document Viewer</h2>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-800 font-bold text-2xl w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <div className="flex-grow">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
+const DocumentViewer = ({ docId, tag , filename}) => {
+    if (!docId) return null;
+
+    const documentUrl = `http://127.0.0.1:8000/uploaded_docs/${tag}/${docId}_${filename}`;
+
+    return (
+        <iframe
+            src={documentUrl}
+            title={`Document Viewer - ${docId}`}
+            className="w-full h-full border-0"
+            seamless
+        >
+            Your browser does not support embedding this file type.
+        </iframe>
+    );
+};
 function StudyAssistantChatPageContent({ user }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -13,7 +56,7 @@ function StudyAssistantChatPageContent({ user }) {
   
   const [newMessage, setNewMessage] = useState("");
   const [file, setFile] = useState(null);
-  const [tag, setTag] = useState("");
+  const [tag, setTag] = useState("central");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,7 +66,10 @@ function StudyAssistantChatPageContent({ user }) {
   const pollingIntervals = useRef(new Map()).current;
 
   const [isLlmLoading, setIsLlmLoading] = useState(false);
-
+  const [viewingDocId, setViewingDocId] = useState(null);
+  const [viewingTag, setViewingTag] = useState("central");
+  const [viewingDocName, setViewingDocName] = useState("");
+  const [expandedTags, setExpandedTags] = useState({});
   // --- THE FIX: Moved function definitions out of useEffect ---
   // We wrap them in useCallback to prevent them from being recreated on every render.
   const fetchConversations = useCallback(async () => {
@@ -72,7 +118,16 @@ function StudyAssistantChatPageContent({ user }) {
       console.error("Failed to fetch documents:", err);
     }
   }, [pollDocumentStatus]);
-
+  const groupedDocuments = useMemo(() => {
+    return documents.reduce((acc, doc) => {
+      const tag = doc.tag || 'Uncategorized';
+      if (!acc[tag]) {
+        acc[tag] = [];
+      }
+      acc[tag].push(doc);
+      return acc;
+    }, {});
+  }, [documents]);
   // This useEffect now just CALLS the functions on initial load.
   useEffect(() => {
     if (user) {
@@ -81,6 +136,7 @@ function StudyAssistantChatPageContent({ user }) {
     }
     
     return () => pollingIntervals.forEach(intervalId => clearInterval(intervalId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, fetchConversations, fetchDocuments]);
 
   useEffect(() => {
@@ -135,6 +191,19 @@ function StudyAssistantChatPageContent({ user }) {
       setDocuments(originalDocuments);
     }
   };
+
+const handleViewDocument = (docId, docName, tag) => {
+        console.log(`Requesting to view document with ID: ${docId}`);
+        setViewingDocId(docId);
+        setViewingDocName(docName);
+        setViewingTag(tag);
+    };
+
+    const handleCloseModal = () => {
+        setViewingDocId(null);
+        setViewingDocName("");
+        setViewingTag("central");
+    };
 
   const handleDeleteConversation = async (convId, e) => {
     // This stops the click from also selecting the conversation.
@@ -272,7 +341,9 @@ function StudyAssistantChatPageContent({ user }) {
       </div>
     </div>
   );
-
+  const toggleTagExpansion = (tag) => {
+    setExpandedTags(prev => ({ ...prev, [tag]: !prev[tag] }));
+  };
   // This CSS creates the bouncing dots animation.
   const animationStyles = `
     .typing-indicator span {
@@ -299,6 +370,7 @@ function StudyAssistantChatPageContent({ user }) {
       }
     }
   `;
+  
   return (
     <div className="min-h-screen flex bg-gray-100 font-sans">
       <SidebarNavigation />
@@ -313,17 +385,37 @@ function StudyAssistantChatPageContent({ user }) {
             <div className="flex-1 overflow-y-auto">
               <div className="p-2 border-t">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">Documents</h3>
-                {documents.map(doc => (
-                  <div key={doc.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 text-sm group">
-                    <div className="flex items-center gap-2 truncate">
-                      <DocumentStatusIcon status={doc.status} />
-                      <span className="truncate text-gray-600" title={doc.filename}>{doc.filename}</span>
+                <div className="space-y-2">
+                  {Object.entries(groupedDocuments).map(([tag, docsInGroup]) => (
+                    <div key={tag}>
+                      <button onClick={() => toggleTagExpansion(tag)} className="w-full flex justify-between items-center px-2 py-1 text-sm font-semibold text-gray-600 rounded-md hover:bg-gray-100">
+                        <span>{tag}</span>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", expandedTags[tag] ? "rotate-180" : "")} />
+                      </button>
+                      {expandedTags[tag] && (
+                        <div className="pl-2 mt-1 space-y-1">
+                          {docsInGroup.map(doc => (
+                            <div key={doc.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 text-sm group">
+                              <div className="flex items-center gap-2 truncate">
+                                <DocumentStatusIcon status={doc.status} />
+                                <span className="truncate text-gray-600" title={doc.filename}>{doc.filename}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => handleViewDocument(doc.id, doc.filename, tag)} className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleDeleteDocument(doc.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                              
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => handleDeleteDocument(doc.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
               <div className="p-2">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">Conversations</h3>
@@ -415,12 +507,15 @@ function StudyAssistantChatPageContent({ user }) {
                   {/* Resized Tag Input */}
                   <div className="flex items-center gap-2 border rounded-full py-2 px-3 bg-white w-64">
                     <Tag className="h-5 w-5 text-gray-400" />
-                    <input
+                    {/* <input
                       placeholder="Subject Tag"
                       value={tag}
                       onChange={(e) => setTag(e.target.value)}
                       className="w-full text-sm outline-none bg-transparent"
-                    />
+                    /> */}
+                    <select value={tag} onChange={(e) => setTag(e.target.value)} className="w-full text-m outline-none bg-transparent">
+                        <option value="central">General</option><option value="CNS">CNS</option><option value="AISC">AISC</option><option value="SE">SE</option><option value="BoardGames">Board Games</option>
+                    </select>
                   </div>
                   
                   {/* Styled Upload Button */}
@@ -463,6 +558,9 @@ function StudyAssistantChatPageContent({ user }) {
           </div>
         </div>
       </main>
+      <Modal isOpen={!!viewingDocId} onClose={handleCloseModal}>
+        <DocumentViewer docId={viewingDocId} tag={viewingTag} filename={viewingDocName} />
+      </Modal>
     </div>
   );
 }

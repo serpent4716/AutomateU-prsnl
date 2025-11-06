@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 import time
 import re
 import sys
-from app import models 
+import app.models as models 
 from typing import List
-from app import auth
+import app.auth as auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
@@ -790,6 +790,8 @@ def fetch_and_store_moodle_tasks(user_id: int) -> List[models.Task]:
                         task_url=task_url
                     )
                     tasks_to_create.append(new_task)
+                    
+                    existing_tasks[task_url] = new_task
 
         # Add all newly created tasks to the database session
         if tasks_to_create:

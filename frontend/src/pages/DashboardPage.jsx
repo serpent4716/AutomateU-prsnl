@@ -8,48 +8,8 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ")
 }
 
-// Sample data - replace with your actual data
-const initialTasks = [
-  {
-    id: "1",
-    title: "Design new landing page",
-    description: "Create wireframes and mockups for the new product landing page",
-    status: "todo",
-    priority: "high",
-    assignee: "John Doe",
-    dueDate: "2024-01-15",
-    tags: ["design", "frontend"],
-    createdAt: "2024-01-10",
-    estimatedHours: 8,
-  },
-  {
-    id: "2",
-    title: "Implement user authentication",
-    description: "Set up OAuth integration with Google and GitHub",
-    status: "in-progress",
-    priority: "high",
-    assignee: "Jane Smith",
-    dueDate: "2024-01-12",
-    tags: ["backend", "security"],
-    createdAt: "2024-01-08",
-    estimatedHours: 12,
-  },
-  {
-    id: "3",
-    title: "Write API documentation",
-    description: "Document all REST endpoints with examples",
-    status: "done",
-    priority: "medium",
-    assignee: "Mike Johnson",
-    dueDate: "2024-01-10",
-    tags: ["documentation"],
-    createdAt: "2024-01-05",
-    estimatedHours: 6,
-  },
-]
-
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState(initialTasks)
+
   const [searchQuery, setSearchQuery] = useState("")
   const navigate = useNavigate()
 
@@ -99,9 +59,9 @@ export default function DashboardPage() {
     },
     {
       icon: PenTool,
-      title: "Write",
-      description: "Essays & research papers",
-      path: "/study-assistant/write",
+      title: "Document Generator",
+      description: "Generate your Submission Documents Easily",
+      path: "/study-assistant/docgenerator",
       color: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200",
       iconColor: "text-indigo-600",
     },
