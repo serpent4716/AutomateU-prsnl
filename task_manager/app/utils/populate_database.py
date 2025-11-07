@@ -26,7 +26,7 @@ load_dotenv()
 try:
     _ = words.words()
 except LookupError:
-    nltk.download("words")
+    print("Download the nltk words library")
 english_vocab = set(w.lower() for w in words.words())
 
 

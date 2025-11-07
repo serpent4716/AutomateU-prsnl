@@ -1,9 +1,11 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000", // your FastAPI backend
+  baseURL: "https://api.automateu.space",
+  // baseURL: "http://localhost:8000", // your FastAPI backend
   //baseURL: "https://83900ab0ccb8.ngrok-free.app", // your FastAPI backend
   withCredentials: true,            // very important: allows cookies to be sent
+  
 });
 
 // Request interceptor to add the CSRF token to every request

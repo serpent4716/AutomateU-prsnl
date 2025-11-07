@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
+    APP_ENV: str = "development"
 
     class Config:
         env_file = ".env"
@@ -67,7 +68,10 @@ def get_db():
         db.close()
 
 # CORS settings - adjust as needed for your frontend for react
-origins = ["http://localhost:3000"]
+origins = ["http://localhost:3000",
+           "https://automateu.space",
+           "https://www.automateu.space",
+        ]
 app.add_middleware(
     CORSMiddleware,
     SessionMiddleware, 
