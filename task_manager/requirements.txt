@@ -7,21 +7,15 @@ fastapi
 uvicorn
 alembic
 google-cloud-vision
-nltk
 rapidfuzz
 pdfplumber
-sentence-transformers
-faiss-cpu
 python-multipart
 chromadb>=0.5
 langchain-chroma>=0.1.2
-pytest
 PyMuPDF
 google-generativeai
 groq
 langchain==0.3.27
-langchain_ollama
-langchain_huggingface
 sentence_transformers
 celery[redis]
 redis
@@ -32,3 +26,4 @@ cryptography
 python-docx
 itsdangerous
 boto3
+spellchecker
