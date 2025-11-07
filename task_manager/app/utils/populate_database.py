@@ -12,9 +12,7 @@ from sqlalchemy.orm import sessionmaker
 import app.models as models # Import your models
 import re
 from collections import Counter
-from nltk.corpus import words
-from rapidfuzz import process
-import nltk
+from spellchecker import SpellChecker
 from groq import Groq
 from dotenv import load_dotenv
 from sentence_transformers.cross_encoder import CrossEncoder
@@ -23,27 +21,19 @@ from sentence_transformers.cross_encoder import CrossEncoder
 
 load_dotenv()
 
-_ENGLISH_VOCAB = None
-
-def get_english_vocab():
-    """
-    This is a "getter" function. It lazy-loads the
-    NLTK 'words' corpus into memory *only* when it's
-    first needed, not at startup.
-    """
-    global _ENGLISH_VOCAB
-    if _ENGLISH_VOCAB is None:
-        print("Lazy-loading NLTK 'words' corpus into memory...")
-        # Your Dockerfile already downloaded 'words', so this is fast.
-        _ENGLISH_VOCAB = set(w.lower() for w in words.words())
-        print("NLTK 'words' corpus loaded.")
-    return _ENGLISH_VOCAB
-# --- END BOMB #1 DEFUSAL ---
-
-
-# --- BOMB #2 DEFUSED ---
-# We create another empty "holder" for the AI model. 0MB of RAM.
+_SPELL_CHECKER = None
 _CROSS_ENCODER_MODEL = None
+
+def get_spell_checker():
+    """
+    Lazy-loads the small, efficient spell-checking object.
+    """
+    global _SPELL_CHECKER
+    if _SPELL_CHECKER is None:
+        print("Lazy-loading SpellChecker...")
+        _SPELL_CHECKER = SpellChecker()
+        print("SpellChecker loaded.")
+    return _SPELL_CHECKER
 
 def get_cross_encoder():
     """
@@ -124,53 +114,55 @@ def remove_repeating_headers_footers(pages: list[str], threshold: float = 0.7) -
     return cleaned_pages
 
 # --- Word Correction ---
-def correct_word(word: str, threshold: int = 85) -> str:
-    # --- UPGRADE ---
-    # Now we call the *getter function* first
-    english_vocab = get_english_vocab()
-    # --- END UPGRADE ---
+def correct_word(word: str) -> str:
+    # 1. Get the lazy-loaded spell checker
+    spell = get_spell_checker()
     
     lw = word.lower()
-    if lw in english_vocab or lw.isnumeric():
+    
+    # 2. Check if the word is known. This is fast and memory-efficient.
+    if lw in spell or lw.isnumeric():
         return word
 
-    match = process.extractOne(word, english_vocab)
-    if match and match[1] >= threshold:
-        return match[0]
+    # 3. Get the correction. This is *real* spell-checking.
+    correction = spell.correction(lw)
 
-    return word
+    # 4. Only return if it's a "good" correction
+    # (process.extractOne was a good idea, but this is safer)
+    if correction and len(correction) > 1:
+        # (This check prevents 'a' from correcting to 'I')
+        return correction
+    
+    return word # Return the original if no good correction
 
 def correct_text(text: str) -> str:
     corrected = []
-    for token in re.findall(r"\b\w+\b|\W", text):  # preserve punctuation
+    for token in re.findall(r"\b\w+\b|\W", text):
         if token.isalpha():
-            # We can call the getter here, but it's more efficient
-            # to call it once inside correct_word()
             corrected.append(correct_word(token))
         else:
             corrected.append(token)
     return "".join(corrected)
 
 def compute_confidence(text: str) -> float:
-    """
-    Returns a confidence score [0.0, 1.0] based on % of known English words.
-    Ignores numbers, punctuation, and short words (1–2 chars).
-    """
-    # --- UPGRADE ---
-    # Call the getter function
-    english_vocab = get_english_vocab()
-    # --- END UPGRADE ---
-
+    # 1. Get the lazy-loaded spell checker
+    spell = get_spell_checker()
+    
     tokens = re.findall(r"\b\w+\b", text)
     if not tokens:
         return 0.0
 
-    valid_words = [
-        token for token in tokens
-        if token.lower() in english_vocab and len(token) > 2 and token.isalpha()
-    ]
+    # 2. Get a list of *unknown* words (more efficient)
+    unknown_words = spell.unknown([
+        token.lower() for token in tokens
+        if len(token) > 2 and token.isalpha()
+    ])
+    
+    total_words = len(tokens)
+    bad_words = len(unknown_words)
 
-    return len(valid_words) / len(tokens)
+    # 3. Return the % of *known* words
+    return (total_words - bad_words) / total_words
 
 # --- Embedding and DB Functions ---
 
