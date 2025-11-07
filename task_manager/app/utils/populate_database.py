@@ -23,15 +23,42 @@ from sentence_transformers.cross_encoder import CrossEncoder
 
 load_dotenv()
 
-try:
-    _ = words.words()
-except LookupError:
-    print("Download the nltk words library")
-english_vocab = set(w.lower() for w in words.words())
+_ENGLISH_VOCAB = None
+
+def get_english_vocab():
+    """
+    This is a "getter" function. It lazy-loads the
+    NLTK 'words' corpus into memory *only* when it's
+    first needed, not at startup.
+    """
+    global _ENGLISH_VOCAB
+    if _ENGLISH_VOCAB is None:
+        print("Lazy-loading NLTK 'words' corpus into memory...")
+        # Your Dockerfile already downloaded 'words', so this is fast.
+        _ENGLISH_VOCAB = set(w.lower() for w in words.words())
+        print("NLTK 'words' corpus loaded.")
+    return _ENGLISH_VOCAB
+# --- END BOMB #1 DEFUSAL ---
 
 
-# REFINEMENT: Initialize models once to be reused, improving performance.
-cross_encoder_model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+# --- BOMB #2 DEFUSED ---
+# We create another empty "holder" for the AI model. 0MB of RAM.
+_CROSS_ENCODER_MODEL = None
+
+def get_cross_encoder():
+    """
+    This "getter" lazy-loads the CrossEncoder model
+    *only* when it's first needed.
+    """
+    global _CROSS_ENCODER_MODEL
+    if _CROSS_ENCODER_MODEL is None:
+        print("Lazy-loading CrossEncoder model into memory...")
+        _CROSS_ENCODER_MODEL = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+        print("CrossEncoder model loaded.")
+    return _CROSS_ENCODER_MODEL
+
+
+
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # app/
 DATA_DIR = os.path.join(BASE_DIR, "data_store")
@@ -98,6 +125,11 @@ def remove_repeating_headers_footers(pages: list[str], threshold: float = 0.7) -
 
 # --- Word Correction ---
 def correct_word(word: str, threshold: int = 85) -> str:
+    # --- UPGRADE ---
+    # Now we call the *getter function* first
+    english_vocab = get_english_vocab()
+    # --- END UPGRADE ---
+    
     lw = word.lower()
     if lw in english_vocab or lw.isnumeric():
         return word
@@ -107,22 +139,28 @@ def correct_word(word: str, threshold: int = 85) -> str:
         return match[0]
 
     return word
+
 def correct_text(text: str) -> str:
     corrected = []
     for token in re.findall(r"\b\w+\b|\W", text):  # preserve punctuation
         if token.isalpha():
+            # We can call the getter here, but it's more efficient
+            # to call it once inside correct_word()
             corrected.append(correct_word(token))
         else:
             corrected.append(token)
     return "".join(corrected)
 
-
-#--- Computing the confidence score for a document ---
 def compute_confidence(text: str) -> float:
     """
     Returns a confidence score [0.0, 1.0] based on % of known English words.
     Ignores numbers, punctuation, and short words (1–2 chars).
     """
+    # --- UPGRADE ---
+    # Call the getter function
+    english_vocab = get_english_vocab()
+    # --- END UPGRADE ---
+
     tokens = re.findall(r"\b\w+\b", text)
     if not tokens:
         return 0.0
@@ -498,7 +536,8 @@ def rerank_documents(query: str, retrieved_docs: list[Document]) -> list[Documen
     pairs = [[query, doc.page_content] for doc in retrieved_docs]
     
     # Get scores from the cross-encoder model
-    scores = cross_encoder_model.predict(pairs)
+    cross_encoder = get_cross_encoder()
+    scores = cross_encoder.predict(pairs)
     
     # Combine documents with their scores and sort
     scored_docs = list(zip(scores, retrieved_docs))
