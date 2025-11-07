@@ -17,7 +17,7 @@ load_dotenv()
 
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 fernet = Fernet(ENCRYPTION_KEY.encode())
-
+APP_ENV = os.getenv("APP_ENV")
 
 # Configuration
 SECRET_KEY = "your-secret-key-1234567890"
@@ -64,22 +64,27 @@ def create_csrf_token():
 
 # Set HttpOnly access token + readable CSRF token
 def set_login_cookies(response: Response, access_token: str, csrf_token: str):
+    IS_PRODUCTION = (APP_ENV == "production")
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,  # Change to True in production with HTTPS
-        samesite="Lax",
+        secure=IS_PRODUCTION, 
+        # 'samesite' MUST be "None" for cross-domain to work,
+        # but "None" *requires* 'secure=True'.
+        samesite="None" if IS_PRODUCTION else "Lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
-    # response.set_cookie(
-    #     key=CSRF_COOKIE_NAME,
-    #     value=csrf_token,
-    #     httponly=False,
-    #     secure=False,
-    #     samesite="Lax",
-    #     max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    # )
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        httponly=False, # <-- THIS IS CRITICAL
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+
+        # The security settings for transport MUST match the access token
+        secure=IS_PRODUCTION,
+        samesite="None" if IS_PRODUCTION else "Lax",
+    )
 
 # Extract token from cookie
 def get_token_from_cookie(request: Request):
