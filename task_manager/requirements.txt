@@ -17,7 +17,7 @@ google-generativeai
 groq
 langchain==0.3.27
 langchain_huggingface
-sentence_transformers.cross_encoder
+sentence_transformers
 celery[redis]
 redis
 psycopg2-binary
