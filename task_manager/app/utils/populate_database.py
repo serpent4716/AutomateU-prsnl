@@ -3,6 +3,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 import os
+import uuid
 import fitz  # PyMuPDF
 from google.cloud import vision
 # New imports for standalone database session
@@ -11,6 +12,9 @@ from sqlalchemy.orm import sessionmaker
 import app.models as models # Import your models
 import re
 from collections import Counter
+from nltk.corpus import words
+from rapidfuzz import process
+import nltk
 from groq import Groq
 from dotenv import load_dotenv
 from sentence_transformers.cross_encoder import CrossEncoder
@@ -19,6 +23,11 @@ from sentence_transformers.cross_encoder import CrossEncoder
 
 load_dotenv()
 
+try:
+    _ = words.words()
+except LookupError:
+    nltk.download("words")
+english_vocab = set(w.lower() for w in words.words())
 
 
 # REFINEMENT: Initialize models once to be reused, improving performance.
@@ -88,53 +97,42 @@ def remove_repeating_headers_footers(pages: list[str], threshold: float = 0.7) -
     return cleaned_pages
 
 # --- Word Correction ---
-# def correct_word(word: str, threshold: int = 85) -> str:
-#     # --- UPGRADE ---
-#     # Now we call the *getter function* first
-#     english_vocab = get_english_vocab()
-#     # --- END UPGRADE ---
-    
-#     lw = word.lower()
-#     if lw in english_vocab or lw.isnumeric():
-#         return word
+def correct_word(word: str, threshold: int = 85) -> str:
+    lw = word.lower()
+    if lw in english_vocab or lw.isnumeric():
+        return word
 
-#     match = process.extractOne(word, english_vocab)
-#     if match and match[1] >= threshold:
-#         return match[0]
+    match = process.extractOne(word, english_vocab)
+    if match and match[1] >= threshold:
+        return match[0]
 
-#     return word
+    return word
+def correct_text(text: str) -> str:
+    corrected = []
+    for token in re.findall(r"\b\w+\b|\W", text):  # preserve punctuation
+        if token.isalpha():
+            corrected.append(correct_word(token))
+        else:
+            corrected.append(token)
+    return "".join(corrected)
 
-# def correct_text(text: str) -> str:
-#     corrected = []
-#     for token in re.findall(r"\b\w+\b|\W", text):  # preserve punctuation
-#         if token.isalpha():
-#             # We can call the getter here, but it's more efficient
-#             # to call it once inside correct_word()
-#             corrected.append(correct_word(token))
-#         else:
-#             corrected.append(token)
-#     return "".join(corrected)
 
-# def compute_confidence(text: str) -> float:
-#     """
-#     Returns a confidence score [0.0, 1.0] based on % of known English words.
-#     Ignores numbers, punctuation, and short words (1–2 chars).
-#     """
-#     # --- UPGRADE ---
-#     # Call the getter function
-#     english_vocab = get_english_vocab()
-#     # --- END UPGRADE ---
+#--- Computing the confidence score for a document ---
+def compute_confidence(text: str) -> float:
+    """
+    Returns a confidence score [0.0, 1.0] based on % of known English words.
+    Ignores numbers, punctuation, and short words (1–2 chars).
+    """
+    tokens = re.findall(r"\b\w+\b", text)
+    if not tokens:
+        return 0.0
 
-#     tokens = re.findall(r"\b\w+\b", text)
-#     if not tokens:
-#         return 0.0
+    valid_words = [
+        token for token in tokens
+        if token.lower() in english_vocab and len(token) > 2 and token.isalpha()
+    ]
 
-#     valid_words = [
-#         token for token in tokens
-#         if token.lower() in english_vocab and len(token) > 2 and token.isalpha()
-#     ]
-
-#     return len(valid_words) / len(tokens)
+    return len(valid_words) / len(tokens)
 
 # --- Embedding and DB Functions ---
 
@@ -230,7 +228,7 @@ def process_document(file_content: bytes, file_name: str, doc_id: str, user_id: 
         for idx, text in enumerate(cleaned_pages, start=1):
             current_topic = page_topic_map[idx - 1]
             full_text = clean_and_flatten(text)
-            # full_text = correct_text(full_text)
+            full_text = correct_text(full_text)
 
             # not considering confidence check for now as it tasks too long
             # confidence = compute_confidence(full_text)
@@ -520,8 +518,8 @@ def query_llm(question: str, context_text: str, chat_history: list[dict]):
     """
     # Construct the system prompt
     system_prompt = """You are a helpful study assistant. Based ONLY on the following retrieved context from the user's documents, answer their latest question.
+    If the context doesn't contain the answer, say "I couldn't find information on that topic in the provided documents."
     You can use some of your prior knowledge if you are confident about it but make sure you don't hallucinate.
-    If the context doesn't contain the answer, say "I couldn't find information on that topic in the provided documents but here's what i know and then use your llm knowledge to answer the question."
     CONTEXT:
     {context}
     """.strip()
@@ -538,7 +536,7 @@ def query_llm(question: str, context_text: str, chat_history: list[dict]):
         chat_completion = client.chat.completions.create(
             messages=messages,
             model="llama-3.1-8b-instant",
-            temperature=0.4,  # Use low temperature for facutal responses
+            temperature=0.2,  # Use low temperature for facutal responses
         )
         return chat_completion.choices[0].message.content
     except Exception as e:

@@ -7,11 +7,13 @@ fastapi
 uvicorn
 alembic
 google-cloud-vision
+nltk
 rapidfuzz
 pdfplumber
 python-multipart
 chromadb>=0.5
 langchain-chroma>=0.1.2
+pytest
 PyMuPDF
 google-generativeai
 groq
