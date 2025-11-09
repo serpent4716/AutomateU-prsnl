@@ -3,7 +3,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 import os
-import uuid
 import fitz  # PyMuPDF
 from google.cloud import vision
 # New imports for standalone database session
@@ -12,9 +11,6 @@ from sqlalchemy.orm import sessionmaker
 import app.models as models # Import your models
 import re
 from collections import Counter
-from nltk.corpus import words
-from rapidfuzz import process
-import nltk
 from groq import Groq
 from dotenv import load_dotenv
 from sentence_transformers.cross_encoder import CrossEncoder
