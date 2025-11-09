@@ -12,7 +12,9 @@ from sqlalchemy.orm import sessionmaker
 import app.models as models # Import your models
 import re
 from collections import Counter
-from spellchecker import SpellChecker
+from nltk.corpus import words
+from rapidfuzz import process
+import nltk
 from groq import Groq
 from dotenv import load_dotenv
 from sentence_transformers.cross_encoder import CrossEncoder
@@ -21,40 +23,16 @@ from sentence_transformers.cross_encoder import CrossEncoder
 
 load_dotenv()
 
-_SPELL_CHECKER = None
-_CROSS_ENCODER_MODEL = None
-
-def get_spell_checker():
-    """
-    Lazy-loads the small, efficient spell-checking object.
-    """
-    global _SPELL_CHECKER
-    if _SPELL_CHECKER is None:
-        print("Lazy-loading SpellChecker...")
-        _SPELL_CHECKER = SpellChecker()
-        print("SpellChecker loaded.")
-    return _SPELL_CHECKER
-
-def get_cross_encoder():
-    """
-    This "getter" lazy-loads the CrossEncoder model
-    *only* when it's first needed.
-    """
-    global _CROSS_ENCODER_MODEL
-    if _CROSS_ENCODER_MODEL is None:
-        print("Lazy-loading CrossEncoder model into memory...")
-        _CROSS_ENCODER_MODEL = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-        print("CrossEncoder model loaded.")
-    return _CROSS_ENCODER_MODEL
 
 
-
+# REFINEMENT: Initialize models once to be reused, improving performance.
+cross_encoder_model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # app/
 DATA_DIR = os.path.join(BASE_DIR, "data_store")
 os.makedirs(DATA_DIR, exist_ok=True)
 CHROMA_PATH = os.path.join(DATA_DIR, "chroma") # Changed to use os.path.join for consistency
-USE_CENTRAL_DB = False
+USE_CENTRAL_DB = True
 CENTRAL_TAG = "central"
 
 
@@ -114,55 +92,53 @@ def remove_repeating_headers_footers(pages: list[str], threshold: float = 0.7) -
     return cleaned_pages
 
 # --- Word Correction ---
-def correct_word(word: str) -> str:
-    # 1. Get the lazy-loaded spell checker
-    spell = get_spell_checker()
+# def correct_word(word: str, threshold: int = 85) -> str:
+#     # --- UPGRADE ---
+#     # Now we call the *getter function* first
+#     english_vocab = get_english_vocab()
+#     # --- END UPGRADE ---
     
-    lw = word.lower()
-    
-    # 2. Check if the word is known. This is fast and memory-efficient.
-    if lw in spell or lw.isnumeric():
-        return word
+#     lw = word.lower()
+#     if lw in english_vocab or lw.isnumeric():
+#         return word
 
-    # 3. Get the correction. This is *real* spell-checking.
-    correction = spell.correction(lw)
+#     match = process.extractOne(word, english_vocab)
+#     if match and match[1] >= threshold:
+#         return match[0]
 
-    # 4. Only return if it's a "good" correction
-    # (process.extractOne was a good idea, but this is safer)
-    if correction and len(correction) > 1:
-        # (This check prevents 'a' from correcting to 'I')
-        return correction
-    
-    return word # Return the original if no good correction
+#     return word
 
-def correct_text(text: str) -> str:
-    corrected = []
-    for token in re.findall(r"\b\w+\b|\W", text):
-        if token.isalpha():
-            corrected.append(correct_word(token))
-        else:
-            corrected.append(token)
-    return "".join(corrected)
+# def correct_text(text: str) -> str:
+#     corrected = []
+#     for token in re.findall(r"\b\w+\b|\W", text):  # preserve punctuation
+#         if token.isalpha():
+#             # We can call the getter here, but it's more efficient
+#             # to call it once inside correct_word()
+#             corrected.append(correct_word(token))
+#         else:
+#             corrected.append(token)
+#     return "".join(corrected)
 
-def compute_confidence(text: str) -> float:
-    # 1. Get the lazy-loaded spell checker
-    spell = get_spell_checker()
-    
-    tokens = re.findall(r"\b\w+\b", text)
-    if not tokens:
-        return 0.0
+# def compute_confidence(text: str) -> float:
+#     """
+#     Returns a confidence score [0.0, 1.0] based on % of known English words.
+#     Ignores numbers, punctuation, and short words (1–2 chars).
+#     """
+#     # --- UPGRADE ---
+#     # Call the getter function
+#     english_vocab = get_english_vocab()
+#     # --- END UPGRADE ---
 
-    # 2. Get a list of *unknown* words (more efficient)
-    unknown_words = spell.unknown([
-        token.lower() for token in tokens
-        if len(token) > 2 and token.isalpha()
-    ])
-    
-    total_words = len(tokens)
-    bad_words = len(unknown_words)
+#     tokens = re.findall(r"\b\w+\b", text)
+#     if not tokens:
+#         return 0.0
 
-    # 3. Return the % of *known* words
-    return (total_words - bad_words) / total_words
+#     valid_words = [
+#         token for token in tokens
+#         if token.lower() in english_vocab and len(token) > 2 and token.isalpha()
+#     ]
+
+#     return len(valid_words) / len(tokens)
 
 # --- Embedding and DB Functions ---
 
@@ -258,7 +234,7 @@ def process_document(file_content: bytes, file_name: str, doc_id: str, user_id: 
         for idx, text in enumerate(cleaned_pages, start=1):
             current_topic = page_topic_map[idx - 1]
             full_text = clean_and_flatten(text)
-            full_text = correct_text(full_text)
+            # full_text = correct_text(full_text)
 
             # not considering confidence check for now as it tasks too long
             # confidence = compute_confidence(full_text)
@@ -528,8 +504,7 @@ def rerank_documents(query: str, retrieved_docs: list[Document]) -> list[Documen
     pairs = [[query, doc.page_content] for doc in retrieved_docs]
     
     # Get scores from the cross-encoder model
-    cross_encoder = get_cross_encoder()
-    scores = cross_encoder.predict(pairs)
+    scores = cross_encoder_model.predict(pairs)
     
     # Combine documents with their scores and sort
     scored_docs = list(zip(scores, retrieved_docs))
@@ -549,8 +524,8 @@ def query_llm(question: str, context_text: str, chat_history: list[dict]):
     """
     # Construct the system prompt
     system_prompt = """You are a helpful study assistant. Based ONLY on the following retrieved context from the user's documents, answer their latest question.
-    If the context doesn't contain the answer, say "I couldn't find information on that topic in the provided documents."
     You can use some of your prior knowledge if you are confident about it but make sure you don't hallucinate.
+    If the context doesn't contain the answer, say "I couldn't find information on that topic in the provided documents but here's what i know and then use your llm knowledge to answer the question."
     CONTEXT:
     {context}
     """.strip()
@@ -567,7 +542,7 @@ def query_llm(question: str, context_text: str, chat_history: list[dict]):
         chat_completion = client.chat.completions.create(
             messages=messages,
             model="llama-3.1-8b-instant",
-            temperature=0.2,  # Use low temperature for facutal responses
+            temperature=0.4,  # Use low temperature for facutal responses
         )
         return chat_completion.choices[0].message.content
     except Exception as e:

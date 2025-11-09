@@ -16,7 +16,8 @@ PyMuPDF
 google-generativeai
 groq
 langchain==0.3.27
-sentence_transformers
+langchain_huggingface
+sentence_transformers.cross_encoder
 celery[redis]
 redis
 psycopg2-binary
@@ -26,4 +27,3 @@ cryptography
 python-docx
 itsdangerous
 boto3
-spellchecker
