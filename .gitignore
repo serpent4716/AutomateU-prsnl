@@ -60,3 +60,4 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+task_manager/automate-*.json

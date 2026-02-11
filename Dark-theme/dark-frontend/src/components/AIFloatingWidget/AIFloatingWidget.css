@@ -1,0 +1,321 @@
+.ai-floating-widget {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Blob Container */
+.blob-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.blob-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Softer white glow */
+.blob-glow {
+  position: absolute;
+  inset: -6px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 40%, transparent 70%);
+  border-radius: 20%;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  filter: blur(10px);
+}
+
+.blob-glow.active {
+  opacity: 1;
+}
+
+/* 💬 Speech Bubble (White on Black aesthetic) */
+.speech-bubble {
+  position: absolute;
+  bottom: 140px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.speech-bubble.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.bubble-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(255, 255, 255, 0.95);
+}
+
+.bubble-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  margin: 0;
+  letter-spacing: -0.2px;
+  min-height: 20px;
+}
+
+.cursor {
+  animation: blink 0.7s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+/* 💭 Chat Bubble */
+.chat-bubble {
+  position: absolute;
+  right: 140px;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 300px;
+  opacity: 0;
+  transform: translateX(20px) scale(0.9);
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 20px 60px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.chat-bubble.visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
+.chat-bubble:hover {
+  box-shadow: 0 25px 70px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Header */
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #f1f5f9;
+  animation: pulse-icon 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+.chat-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.chat-subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin: 2px 0 0 0;
+}
+
+/* Content */
+.chat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: #d1d5db;
+  margin: 0;
+  line-height: 1.5;
+  letter-spacing: -0.2px;
+}
+
+/* 🪄 Start Chat Button (AutomateU Theme Gradient) */
+.chat-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(to right, #fb923c, #ec4899, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.35s ease;
+  box-shadow: 0 4px 18px rgba(236, 72, 153, 0.35), 0 0 10px rgba(139, 92, 246, 0.25);
+  margin-top: 6px;
+  letter-spacing: -0.2px;
+}
+
+.chat-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(236, 72, 153, 0.45), 0 0 14px rgba(139, 92, 246, 0.35);
+}
+
+.chat-button:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
+.arrow-icon {
+  transition: transform 0.3s ease;
+  color: white;
+}
+
+.chat-button:hover .arrow-icon {
+  transform: translateX(3px);
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
+.arrow-icon {
+  transition: transform 0.3s ease;
+  color: white;
+}
+
+.chat-button:hover .arrow-icon {
+  transform: translateX(2px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ai-floating-widget {
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .blob-container {
+    width: 100px;
+    height: 100px;
+  }
+
+  .speech-bubble {
+    bottom: 120px;
+    padding: 10px 14px;
+  }
+
+  .bubble-text {
+    font-size: 13px;
+  }
+
+  .chat-bubble {
+    right: 110px;
+    min-width: 280px;
+    padding: 10px;
+  }
+
+  .chat-message {
+    font-size: 8px;
+  }
+
+  .chat-button {
+    padding: 9px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .speech-bubble {
+    bottom: 110px;
+  }
+
+  .chat-bubble {
+    right: auto;
+    left: 50%;
+    bottom: 140px;
+    transform: translateX(calc(-50% + 20px)) scale(0.9);
+    min-width: 260px;
+  }
+
+  .chat-bubble.visible {
+    transform: translateX(-50%) scale(1);
+  }
+}

@@ -514,7 +514,7 @@ const handleViewDocument = (docId, docName, tag) => {
                       className="w-full text-sm outline-none bg-transparent"
                     /> */}
                     <select value={tag} onChange={(e) => setTag(e.target.value)} className="w-full text-m outline-none bg-transparent">
-                        <option value="central">General</option><option value="CNS">CNS</option><option value="AISC">AISC</option><option value="SE">SE</option><option value="BoardGames">Board Games</option>
+                        <option value="central">General</option><option value="CNS">CNS</option><option value="AISC">AISC</option><option value="SoftwareEngineering">SE</option><option value="BoardGames">Board Games</option>
                     </select>
                   </div>
                   

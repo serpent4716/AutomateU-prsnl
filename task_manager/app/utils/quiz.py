@@ -153,7 +153,7 @@ def build_prompt(content: str, settings: dict) -> str:
     """
     prompt_template = f"""
         Generate a quiz in JSON format based on the following settings and content. Your entire response must be ONLY the raw JSON object, starting with {{ and ending with }}.
-
+        If you think the content is not accurate enough you can make changes in the content as per your requirement but ensure that the questions are relevant to the content provided and accurate to the best of your knowledge.
         JSON Schema: The root must be a "questions" array. Each object in the array must contain these keys:
         - "question_text": (string) The question.
         - "question_type": (string) Must be one of {settings['question_types']}.
@@ -216,7 +216,7 @@ def get_representative_chunks_for_quiz(tag: str, source_doc_id: str) -> str:
     
     # 1. Get the collection
     try:
-        chroma_db = get_chroma_db(tag)
+        chroma_db = get_chroma_db(tag, source_doc_id)
     except Exception as e:
         print(f"Error connecting to ChromaDB for tag {tag}: {e}")
         return "" # Return empty string on error

@@ -1,0 +1,34 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Virtual envs
+
+.venv/
+venv/
+env/
+
+# Local data & caches
+data_store/
+data/
+cache/
+models/
+weights/
+downloads/
+.chroma/
+.chromadb/
+vector_store/
+
+# Node/npm leftovers
+node_modules/
+
+# Git junk
+.git/
+.gitignore
+
+# OS / editor files
+*.DS_Store
+.idea/
+.vscode/

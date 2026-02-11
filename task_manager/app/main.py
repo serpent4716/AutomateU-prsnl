@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Response, Cookie, UploadFile, File, Form, BackgroundTasks, Header, Security
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy import desc, func, extract, and_ , case
 from fastapi.responses import FileResponse
@@ -8,7 +8,7 @@ import uuid
 import hashlib
 import os, json
 import shutil
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import timedelta
 import app.models as models
 import app.schemas as schemas
@@ -19,12 +19,13 @@ import numpy as np
 import app.utils.populate_database as populate_db
 import app.utils.quiz as quiz
 from app.utils.populate_database import DATA_DIR, CHROMA_PATH
-from app.celery_worker import process_document_task, extract_data_task, process_quiz_document, generate_document_task, update_subject_stats
+from app.celery_config import celery_app
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.models import APIKey
 from fastapi.staticfiles import StaticFiles
 import app.utils.summarize as summarize 
-import app.utils.tasks as tasks 
+import app.utils.tasks as tasks
+import app.utils.moderation as moderation
 from redis import asyncio as aioredis
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 from pydantic_settings import BaseSettings
@@ -47,14 +48,22 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     APP_ENV: str = "development"
-
-    class Config:
-        env_file = ".env"
+    BACKEND_URL: str = "http://localhost:8000"
+    CORS_ORIGINS: str = ""
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        extra="allow",
+    )
 settings = Settings()
 
 app = FastAPI()
-models.Base.metadata.create_all(bind=database.engine)        # ***only good for development, not production***
+# Keep create_all only for non-production local workflows.
+if settings.APP_ENV.lower() != "production":
+    models.Base.metadata.create_all(bind=database.engine)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DOC_DIR, exist_ok=True)
+os.makedirs(DOC_GENERATION_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")  
 app.mount("/uploaded_docs", StaticFiles(directory=UPLOAD_DOC_DIR), name="uploaded_docs") 
 app.mount("/generated_docs", StaticFiles(directory=DOC_GENERATION_DIR), name="generated_docs")
@@ -67,20 +76,37 @@ def get_db():
     finally:
         db.close()
 
-# CORS settings - adjust as needed for your frontend for react
-origins = ["http://localhost:3000",
-           "https://automateu.space",
-           "https://www.automateu.space",
-        ]
+def _build_cors_origins() -> list[str]:
+    origins = {
+        "http://localhost:3000",
+        "http://localhost:3002",
+        "https://automateu.space",
+        "https://www.automateu.space",
+    }
+    if settings.FRONTEND_URL:
+        origins.add(settings.FRONTEND_URL.rstrip("/"))
+    if settings.CORS_ORIGINS:
+        extra = [o.strip().rstrip("/") for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+        origins.update(extra)
+    return sorted(origins)
+
+
+origins = _build_cors_origins()
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    SessionMiddleware, 
-    secret_key=settings.SECRET_KEY,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Session middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+)
+
 
 
     
@@ -129,7 +155,7 @@ def send_verification_email(user_email: str, user_id: int):
     Generates a verification token and sends it via AWS SES.
     """
     token = URL_SERIALIZER.dumps(user_id, salt='email-verification')
-    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    verification_link = f"{settings.BACKEND_URL}/auth/verify-email?token={token}"
     
     try:
         SES_CLIENT.send_email(
@@ -176,8 +202,13 @@ async def upload_doc(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    
-    
+    if moderation.is_disallowed_image_upload(file.content_type, file.filename):
+        raise HTTPException(status_code=400, detail="Image uploads are not allowed in RAG document ingestion.")
+    if not moderation.is_supported_rag_upload(file.content_type, file.filename):
+        raise HTTPException(status_code=400, detail="Unsupported file type for RAG ingestion. Use PDF/TXT/DOCX.")
+    if moderation.contains_vulgar_text(tag):
+        raise HTTPException(status_code=400, detail="Tag contains disallowed language.")
+
     file_content = await file.read()
     content_hash = hashlib.sha256(file_content).hexdigest()
 
@@ -225,12 +256,7 @@ async def upload_doc(
     #     tag=tag,
     #     user_id=str(current_user.id)
     # )
-    process_document_task.delay(
-        doc_id=doc_id,
-        file_path=permanent_file_path,
-        tag=tag,
-        user_id=str(current_user.id)
-    )
+    celery_app.send_task("process_document_task", kwargs={"doc_id": doc_id, "file_path": permanent_file_path, "tag": tag, "user_id": str(current_user.id)})
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
     return schemas.Document.model_validate(db_document)
@@ -317,7 +343,7 @@ async def delete_document(
         raise HTTPException(status_code=403, detail="Not authorized")
     #Perform deletion from ChromaDB if it exists
     if db_doc.chroma_ids:   # store this as a list of IDs in your model
-        populate_db.delete_from_chroma(db_doc.chroma_ids, db_doc.tag)
+        populate_db.delete_from_chroma(db_doc.chroma_ids, db_doc.tag, doc_id)
 
     # Delete from Postgresql database
     db.delete(db_doc)
@@ -385,7 +411,9 @@ async def ask_question(
     current_user: models.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    
+    if moderation.contains_vulgar_text(ask_request.question):
+        raise HTTPException(status_code=400, detail="Please avoid vulgar or explicit language.")
+
     conversation_id = ask_request.conversation_id
     chat_history_messages = []
 
@@ -410,24 +438,18 @@ async def ask_question(
     db.add(user_message)
     db.commit()
 
-    # Perform RAG search
-    # 1. Broad Retrieval: Get more documents initially (e.g., k=10)
-    print(f"Retrieving documents for tag: '{ask_request.tag}'")
-    chroma_db = populate_db.get_chroma_db(ask_request.tag)  
-    retrieved_docs = chroma_db.similarity_search(ask_request.question, k=10)
-    
-    # 2. Re-ranking: Use the cross-encoder to find the most relevant documents
-    reranked_docs = populate_db.rerank_documents(ask_request.question, retrieved_docs)
+    # Tree-based lexical retrieval (topic/page hierarchy aware)
+    context_docs = populate_db.retrieve_tree_based_context(
+        query=ask_request.question,
+        tag=ask_request.tag,
+        top_k=3
+    )
+    context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
+    sources = populate_db.format_sources(context_docs)
 
-    # 3. Final Context Selection: Use the top 3 from the re-ranked list
-    top_k_reranked = reranked_docs[:3]
-    context_text = "\n\n---\n\n".join([doc.page_content for doc in top_k_reranked])
-    sources = populate_db.format_sources(top_k_reranked)
-
-    # Get response from LLM
+    # Get response from Gemini-backed RAG answerer
     formatted_history = populate_db.format_chat_history(chat_history_messages)
     answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
-
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)
@@ -798,7 +820,7 @@ async def fetch_moodle_tasks(
 ):
     if not current_user.moodle_account:
         raise HTTPException(status_code=404, detail="No Moodle account found for this user")
-    task = extract_data_task.delay(current_user.id)
+    task = celery_app.send_task("extract_data_task", args=[current_user.id])
     return {"message": "Task queued", "task_id": task.id}
 # --- Create Moodle Account ---
 @app.post("/moodle/account", response_model=schemas.MoodleAccount)
@@ -1049,6 +1071,13 @@ async def upload_document_for_quiz(
     Handles uploading a new document, checking for duplicates,
     and starting the background processing task.
     """
+    if moderation.is_disallowed_image_upload(file.content_type, file.filename):
+        raise HTTPException(status_code=400, detail="Image uploads are not allowed for quiz ingestion.")
+    if not moderation.is_supported_rag_upload(file.content_type, file.filename):
+        raise HTTPException(status_code=400, detail="Unsupported file type for quiz ingestion. Use PDF/TXT/DOCX.")
+    if moderation.contains_vulgar_text(tag):
+        raise HTTPException(status_code=400, detail="Tag contains disallowed language.")
+
     file_content = await file.read()
     content_hash = hashlib.sha256(file_content).hexdigest()
 
@@ -1090,12 +1119,7 @@ async def upload_document_for_quiz(
         )
 
     # Start the Celery task
-    process_quiz_document.delay(
-        doc_id=doc_id,
-        file_path=permanent_file_path,
-        tag=tag,
-        user_id=str(current_user.id)
-    )
+    celery_app.send_task("process_quiz_document", kwargs={"doc_id": doc_id, "file_path": permanent_file_path, "tag": tag, "user_id": str(current_user.id)})
     
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
@@ -1371,12 +1395,7 @@ async def start_document_generation(
         )
         db.add(db_doc)
         db.commit()
-        generate_document_task.delay(
-            output_file_path=output_file_path,
-            task_id=task_id,
-            user_id=current_user.id,
-            payload_dict=request_data.dict()
-        )
+        celery_app.send_task("generate_document_task", kwargs={"output_file_path": output_file_path, "task_id": task_id, "user_id": current_user.id, "payload_dict": request_data.dict()})
         
         return schemas.DocumentTaskResponse(task_id=task_id, status=models.GenerationStatus.QUEUED)
 
@@ -1695,7 +1714,7 @@ def create_class_instance(
     db.commit()
     
     # --- Trigger Celery Task ---
-    update_subject_stats.delay(subject.id, db_job.id)
+    celery_app.send_task("update_subject_stats", args=[subject.id, db_job.id])
     
     db.refresh(db_class)
     db.refresh(db_job) # Refresh to get job ID
@@ -1761,7 +1780,7 @@ def mark_attendance(
     db.commit()
     
     # --- Trigger Celery Task ---
-    update_subject_stats.delay(instance.subject_id, db_job.id)
+    celery_app.send_task("update_subject_stats", args=[instance.subject_id, db_job.id])
     
     db.refresh(record)
     db.refresh(db_job) # Refresh to get job ID
@@ -1943,3 +1962,4 @@ def get_analytics_insights(
         attendance_by_day=attendance_by_day_data,
         weekly_trend=weekly_trend_data
     )
+

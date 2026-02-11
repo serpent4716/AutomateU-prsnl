@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom"; 
 import { Save, Upload, Bell, Shield, Palette, X, Loader2 } from "lucide-react";
 import api from "../services/api"; 
 import { SidebarNavigation } from "./SidebarNavigation"; 
-
+import { useTheme } from '../context/ThemeContext';
 
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
@@ -295,10 +295,6 @@ export default function SettingsPage({ userInfo, setUserInfo }) {
         sessionTimeout: "24h",
     });
 
-    const [preferences, setPreferences] = useState({
-        theme: "light",
-        autoSave: true,
-    });
 
     const [isLoading, setIsLoading] = useState(false); // For profile save
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -307,6 +303,22 @@ export default function SettingsPage({ userInfo, setUserInfo }) {
     // --- ADDED: Loading state for initial Moodle check ---
     const [isMoodleCheckLoading, setIsMoodleCheckLoading] = useState(true);
 
+    
+    const { updateTheme, preference } = useTheme(); 
+// Note: preference here is 'light', 'dark', or 'system'
+    const [preferences, setPreferences] = useState({ 
+        theme: preference, 
+    });
+
+const handleThemeChange = (e) => {
+    const newPreference = e.target.value;
+    
+    // update local settings page UI
+    setPreferences(prev => ({ ...prev, theme: newPreference })); // Make sure 'theme' field in preferences stores the preference ('light', 'dark', or 'system')
+    
+    // update global theme using the function provided by ThemeProvider
+    updateTheme(newPreference);
+};
     // --- Effects ---
 
     // 1. Auth Check and State Population
@@ -429,15 +441,15 @@ export default function SettingsPage({ userInfo, setUserInfo }) {
         }
     };
     
-    const handleThemeChange = (e) => {
-        const newTheme = e.target.value;
-        if (newTheme === 'dark' || newTheme === 'system') {
-            openModal('comingSoon');
-            // Don't update state, so dropdown snaps back to "light"
-        } else {
-            setPreferences(prev => ({ ...prev, theme: newTheme }));
-        }
-    };
+    // const handleThemeChange = (e) => {
+    //     const newTheme = e.target.value;
+    //     if (newTheme === 'dark' || newTheme === 'system') {
+    //         openModal('comingSoon');
+    //         // Don't update state, so dropdown snaps back to "light"
+    //     } else {
+    //         setPreferences(prev => ({ ...prev, theme: newTheme }));
+    //     }
+    // };
 
     // --- Modal Title Logic ---
     let modalTitle = "";
@@ -582,12 +594,18 @@ export default function SettingsPage({ userInfo, setUserInfo }) {
                        content: (
                             <div className="space-y-4">
                                 <div>
-                                    <label className="font-medium">Theme</label>
-                                    {/* Use custom handler for theme change */}
-                                    <select value={preferences.theme} onChange={handleThemeChange} className="mt-1 w-full h-10 px-3 border rounded-md bg-white">
-                                        <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
-                                    </select>
-                                </div>
+    <label className="font-medium">Theme</label>
+    <select 
+        // Use the preference state from your local component or context if needed
+        value={preferences.theme} 
+        onChange={handleThemeChange} 
+        className="mt-1 w-full h-10 px-3 border rounded-md bg-white"
+    >
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="system">System</option>
+    </select>
+</div>
                                 {/* "Default View" section is removed */}
                                 <div className="flex items-center justify-between">
                                     <div><label className="font-medium">Auto-save</label><p className="text-sm text-gray-600">Automatically save changes</p></div>

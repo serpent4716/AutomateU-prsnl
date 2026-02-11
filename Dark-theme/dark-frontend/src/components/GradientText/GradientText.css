@@ -1,0 +1,67 @@
+.animated-gradient-text {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  transition: box-shadow 0.4s ease-out, transform 0.4s ease;
+  overflow: hidden;
+  cursor: default;
+}
+
+.gradient-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff7aa0, #ffc371, #7dd3fc, #c084fc);
+  background-size: 300% 100%;
+  animation: gradientMove 8s linear infinite;
+  opacity: 0.4;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.gradient-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background-color: rgba(10, 10, 15, 0.9);
+  z-index: 1;
+}
+
+.text-content {
+  position: relative;
+  z-index: 2;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 700;
+  background: linear-gradient(90deg, #ff7aa0, #ffc371, #7dd3fc, #c084fc);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.3); /* 👈 adds thickness */
+  text-shadow:
+    0 0 1px rgba(255, 255, 255, 0.2),
+    0 0 2px rgba(255, 255, 255, 0.15); /* 👈 soft glow for clarity */
+  animation: gradientMove 8s linear infinite;
+}
+
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

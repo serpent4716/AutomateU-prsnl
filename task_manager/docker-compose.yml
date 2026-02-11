@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:16-alpine
@@ -29,38 +31,56 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
+  # Build the heavy image ONCE
+  app:
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port ${FASTAPI_PORT:-8000} --reload
-    ports:
-      - "${FASTAPI_PORT:-8000}:${FASTAPI_PORT:-8000}"
-    env_file:
-      - .env
+    image: myapp:latest
+    env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CHROMA_DATA_PATH: /app/data/chroma
     volumes:
+      - ./data_store/chroma:/app/data/chroma  # externalized DB
       - ./:/app
-      - ./data_store/chroma:/app/data/chroma
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  worker:
-    build: .
-    command: celery -A app.celery_worker:celery_app worker --loglevel=info
-    env_file:
-      - .env
+  web:
+    image: myapp:latest
+    command: uvicorn app.main:app --host 0.0.0.0 --port ${FASTAPI_PORT:-8000} --reload
+    env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CHROMA_DATA_PATH: /app/data/chroma
     volumes:
-      - ./:/app
       - ./data_store/chroma:/app/data/chroma
+      - ./:/app
+    ports:
+      - "${FASTAPI_PORT:-8000}:${FASTAPI_PORT:-8000}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  worker:
+    image: myapp:latest
+    command: celery -A app.celery_worker:celery_app worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CHROMA_DATA_PATH: /app/data/chroma
+    volumes:
+      - ./data_store/chroma:/app/data/chroma
+      - ./:/app
     depends_on:
       db:
         condition: service_healthy
@@ -68,23 +88,22 @@ services:
         condition: service_healthy
 
   beat:
-    build: .
+    image: myapp:latest
     command: celery -A app.celery_worker:celery_app beat --loglevel=info
-    env_file:
-      - .env
+    env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CHROMA_DATA_PATH: /app/data/chroma
     volumes:
-      - ./:/app
       - ./data_store/chroma:/app/data/chroma
+      - ./:/app
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-        
+
 volumes:
   postgres-data:
   redis-data:
