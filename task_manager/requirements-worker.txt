@@ -33,3 +33,4 @@ langchain_huggingface
 sentence_transformers
 python-docx
 pytest
+numpy
