@@ -1,90 +1,111 @@
-
 import './App.css';
-import DashboardPage from './pages/DashboardPage';
-import ChatPage from './pages/ChatPage';
-import AttendancePage from './pages/AttendancePage';
 import LoginPage from './pages/LoginPage';
-import { Route, Routes, Navigate} from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import SignupPage from './pages/SignupPage';
-import StudyAssistantPage from './pages/StudyAssistant/StudyAssistantPage';
-import StudyAssistantChatPage from './pages/StudyAssistant/StudyAssistantChatPage';
-import StudyAssistantFlashcardPage from './pages/StudyAssistant/StudyAssistantFlashcardPage';
-import StudyAssistantQuizPage from './pages/StudyAssistant/StudyAssistantQuizPage';
-import StudyAssistantSummarizePage from './pages/StudyAssistant/StudyAssistantSummarizePage';
-import LostFoundPage from './pages/LostFoundPage';
-import TasksPage from './pages/TasksPage';
-import SettingsPage from './pages/SettingsPage';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import ProtectedRoute from './ProtectedRoute';
 import api from './services/api';
-import { useEffect, useState } from 'react';
-import DocumentGeneratorPage from './pages/StudyAssistant/DocumentGeneratorPage';
+import { ThemeProvider } from './context/ThemeContext';
 
-const LoadingSpinner = () => <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading application...</div>;
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const AttendancePage = lazy(() => import('./pages/AttendancePage'));
+
+const StudyAssistantPage = lazy(() => import('./pages/StudyAssistant/StudyAssistantPage'));
+const StudyAssistantChatPage = lazy(() => import('./pages/StudyAssistant/StudyAssistantChatPage'));
+const StudyAssistantFlashcardPage = lazy(() => import('./pages/StudyAssistant/StudyAssistantFlashcardPage'));
+const StudyAssistantQuizPage = lazy(() => import('./pages/StudyAssistant/StudyAssistantQuizPage'));
+const StudyAssistantSummarizePage = lazy(() => import('./pages/StudyAssistant/StudyAssistantSummarizePage'));
+const LostFoundPage = lazy(() => import('./pages/LostFoundPage'));
+const TasksPage = lazy(() => import('./pages/TasksPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+
+const DocumentGeneratorPage = lazy(() => import('./pages/StudyAssistant/DocumentGeneratorPage'));
+
+const LoadingSpinner = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    Loading application...
+  </div>
+);
 
 function App() {
   const [userInfo, setUserInfo] = useState(() => {
-  
-  const storedUser = localStorage.getItem("user");
-  try {
-    return storedUser ? JSON.parse(storedUser) : null;
-  } catch (err) {
-    console.error("Failed to parse user from localStorage:", err);
-    return null;
-  }
-});
-  const [isLoading, setIsLoading] = useState(true);
-  // Refresh session on mount
-  useEffect(() => {
-      const refreshSession = async () => {
-          console.log("--- Starting session check ---");
-
-          try {
-              console.log("Attempting to call /auth/refresh to verify session...");
-              const response = await api.get("/auth/refresh");
-              
-              console.log("API call successful. User is authenticated.");
-              localStorage.setItem("user", JSON.stringify(response.data.user));
-              localStorage.setItem("csrf_token", response.data.csrf_token);
-              setUserInfo(response.data.user);
-
-          } catch (err) {
-              console.log("API call failed. User is not authenticated.");
-              // If the API call fails, the user is not logged in. Clean up.
-              localStorage.removeItem("user");
-              localStorage.removeItem("csrf_token");
-              setUserInfo(null);
-              <Navigate to="/login" replace />;
-          } finally {
-              setIsLoading(false);
-              console.log("--- Session check finished ---");
-          }
-      };
-
-      refreshSession();
-  }, []);
-  if (isLoading) {
-        return <LoadingSpinner />;
+    const storedUser = localStorage.getItem('user');
+    try {
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (err) {
+      console.error('Failed to parse user from localStorage:', err);
+      return null;
     }
+  });
+
+  const hasStoredUser = Boolean(localStorage.getItem('user'));
+  const [isLoading, setIsLoading] = useState(hasStoredUser);
+
+  useEffect(() => {
+    if (!hasStoredUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshSession = async () => {
+      try {
+        const response = await api.get('/auth/refresh', { timeout: 8000 });
+
+        if (!isMounted) return;
+
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('csrf_token', response.data.csrf_token);
+        setUserInfo(response.data.user);
+      } catch (err) {
+        if (!isMounted) return;
+
+        localStorage.removeItem('user');
+        localStorage.removeItem('csrf_token');
+        setUserInfo(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    refreshSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasStoredUser]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div className="App">
-      <Routes>
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path='/chat' element={<ChatPage />} />
-        <Route path='/attendance' element={userInfo ? <AttendancePage user={userInfo}/> : <Navigate to='/login' />} />
-        <Route path='/login' element={<LoginPage setUserInfo={setUserInfo}/>} />
-        <Route path='/signup' element={<SignupPage />} />
-        <Route path='/tasks' element={userInfo ? <TasksPage user={userInfo} /> : <Navigate to='/login' />} />
-        <Route path='/study-assistant' element={<StudyAssistantPage />} />
-        <Route path='/lost-found' element={userInfo ? <LostFoundPage user={userInfo}/> : <Navigate to='/login'/>} />
-        <Route path='/study-assistant/chat' element={userInfo ? <StudyAssistantChatPage user={userInfo}/> : <Navigate to='/login' />} />
-        <Route path='/study-assistant/docgenerator' element={userInfo ? <DocumentGeneratorPage user={userInfo}/> : <Navigate to='/login' />} />
-        <Route path='/study-assistant/flashcards' element={<StudyAssistantFlashcardPage />} />
-        <Route path='/study-assistant/quiz' element={userInfo ? <StudyAssistantQuizPage user={userInfo}/> : <Navigate to='/login' />} />
-        <Route path='/study-assistant/summarize' element={userInfo ? <StudyAssistantSummarizePage user={userInfo}/> : < Navigate to='/login'/>} />
-        <Route path='/settings' element={userInfo ? <SettingsPage userInfo={userInfo} setUserInfo={setUserInfo}/> : <Navigate to='/login' />} />
-        <Route path='*' element={ <DashboardPage /> } />
-      </Routes>
-      
+      <ThemeProvider>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/attendance" element={userInfo ? <AttendancePage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/login" element={<LoginPage setUserInfo={setUserInfo} />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/tasks" element={userInfo ? <TasksPage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/study-assistant" element={<StudyAssistantPage />} />
+            <Route path="/lost-found" element={userInfo ? <LostFoundPage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/study-assistant/chat" element={userInfo ? <StudyAssistantChatPage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/study-assistant/docgenerator" element={userInfo ? <DocumentGeneratorPage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/study-assistant/flashcards" element={<StudyAssistantFlashcardPage />} />
+            <Route path="/study-assistant/quiz" element={userInfo ? <StudyAssistantQuizPage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/study-assistant/summarize" element={userInfo ? <StudyAssistantSummarizePage user={userInfo} /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={userInfo ? <SettingsPage userInfo={userInfo} setUserInfo={setUserInfo} /> : <Navigate to="/login" />} />
+            <Route path="*" element={<DashboardPage />} />
+          </Routes>
+        </Suspense>
+      </ThemeProvider>
     </div>
   );
 }

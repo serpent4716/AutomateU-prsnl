@@ -1,14 +1,29 @@
 import axios from "axios";
 
+function resolveApiBaseUrl() {
+  if (process.env.REACT_APP_API_BASE_URL) {
+    return process.env.REACT_APP_API_BASE_URL;
+  }
+
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    if (hostname === "automateu.space" || hostname === "www.automateu.space") {
+      return "https://api.automateu.space";
+    }
+    if (hostname.endsWith(".automateu.space")) {
+      return `${protocol}//api.automateu.space`;
+    }
+  }
+
+  return "http://localhost:8000";
+}
+
 const api = axios.create({
-  baseURL: "https://api.automateu.space",
-  // baseURL: "http://localhost:8000", // your FastAPI backend
-  //baseURL: "https://83900ab0ccb8.ngrok-free.app", // your FastAPI backend
-  withCredentials: true,            // very important: allows cookies to be sent
-  
+  baseURL: resolveApiBaseUrl(),
+  withCredentials: true,
+  timeout: 15000,
 });
 
-// Request interceptor to add the CSRF token to every request
 api.interceptors.request.use(
   (config) => {
     const csrfToken = localStorage.getItem("csrf_token");
@@ -19,8 +34,5 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-
-// We have removed the problematic response interceptor.
-// Error handling will now be done in the React components that make the API calls.
 
 export default api;

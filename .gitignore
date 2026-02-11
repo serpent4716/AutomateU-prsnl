@@ -60,3 +60,19 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+task_manager/automate-*.json
+**/.codex-backups/
+Dark-theme/
+light mode/
+task_manager/app.db
+task_manager/tasks.db
+task_manager/output.txt
+task_manager/celerybeat-schedule
+task_manager/app/data_store/chroma/
+task_manager/uploaded_docs/
+task_manager/generated_docs/
+task_manager/uploads/
+task_manager/app/utils/code.py
+task_manager/app/utils/experiment.docx
+frontend/src/pages/temp.txt
+frontend/src/pages/temp1.txt

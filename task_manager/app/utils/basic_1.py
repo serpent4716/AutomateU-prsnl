@@ -6,6 +6,8 @@ from datetime import date
 import json
 import os
 import google.generativeai as genai
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_ALIGN_VERTICAL
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -167,12 +169,54 @@ def generate_experiment_tables(doc, num_problems, details, selected_fields):
             set_cell_padding(merged_result, top=150, start=210, bottom=150, end=150)
         
         # doc.add_paragraph() # Add space between tables
+def add_college_header_stacked(doc, logo_path):
+    """Adds a centered logo at the top with centered text lines below it."""
+    
+    # 1. Access the header
+    section = doc.sections[0]
+    header = section.header
+    
+    # Clear any existing content in the header
+    for p in header.paragraphs:
+        p.clear()
 
+    # 2. ADD THE LOGO (Top Center)
+    # Create a paragraph for the logo and center it
+    logo_para = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    logo_run = logo_para.add_run()
+    # Using 'r' prefix for the path string is safest for Windows
+    logo_run.add_picture(logo_path, width=Inches(0.9)) 
+    
+    # 3. ADD THE TEXT (Below Logo, Center)
+    header_lines = [
+        "BHARATIYA VIDYA BHAVAN’S",
+        "SARDAR PATEL INSTITUTE OF TECHNOLOGY",
+        "Bhavan’s Campus, Munshi Nagar, Andheri (West),",
+        "Mumbai – 400058-India",
+        "DEPARTMENT OF COMPUTER ENGINEERING"
+    ]
+    
+    for line in header_lines:
+        p = header.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(line)
+        run.bold = True
+        run.font.size = Pt(11)
+        
+        # Keep the lines tight together
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+
+    # Add a little breathing room after the last line
+    header.paragraphs[-1].paragraph_format.space_after = Pt(12)
 
 def create_document(output_path, details, num_problems, selected_fields):
     """Creates and populates the Word document from scratch."""
     doc = Document()
     
+    add_college_header_stacked(doc, logo_path='D:\AUTOMATEU\AutomateU-prsnl\\task_manager\\app\\utils\\image.png')
     # --- HEADER TABLE ---
     if any(f in selected_fields for f in ['Name', 'UID', 'Class and Batch', 'Experiment No', 'Date', 'Aim', 'Objective']):
         header_table = doc.add_table(rows=0, cols=2)
@@ -391,7 +435,7 @@ def run_full_generation_process(output_file_path, payload_dict, task_id):
     
 
 if __name__ == "__main__":
-    output_file = "generated_experiment.docx"
+    output_file = "experiment.docx"
     
     selected_fields = get_user_choices()
 

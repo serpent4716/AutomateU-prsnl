@@ -16,11 +16,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    raise RuntimeError("ENCRYPTION_KEY is not set in environment.")
 fernet = Fernet(ENCRYPTION_KEY.encode())
-APP_ENV = os.getenv("APP_ENV")
+APP_ENV = os.getenv("APP_ENV", "development").lower()
 
 # Configuration
-SECRET_KEY = "your-secret-key-1234567890"
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is not set in environment.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30    
 CSRF_COOKIE_NAME = "csrf_token"
@@ -75,16 +79,16 @@ def set_login_cookies(response: Response, access_token: str, csrf_token: str):
         samesite="None" if IS_PRODUCTION else "Lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
-    response.set_cookie(
-        key=CSRF_COOKIE_NAME,
-        value=csrf_token,
-        httponly=False, # <-- THIS IS CRITICAL
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    # response.set_cookie(
+    #     key=CSRF_COOKIE_NAME,
+    #     value=csrf_token,
+    #     httponly=False, # <-- THIS IS CRITICAL
+    #     max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
 
-        # The security settings for transport MUST match the access token
-        secure=IS_PRODUCTION,
-        samesite="None" if IS_PRODUCTION else "Lax",
-    )
+    #     # The security settings for transport MUST match the access token
+    #     secure=IS_PRODUCTION,
+    #     samesite="None" if IS_PRODUCTION else "Lax",
+    # )
 
 # Extract token from cookie
 def get_token_from_cookie(request: Request):
@@ -113,6 +117,7 @@ def get_current_user_from_cookie(request: Request,csrf_token_from_header: str, d
         # except ValueError:
         #     raise HTTPException(status_code=401, detail="Invalid user ID in token")
         # CSRF Token Validation
+        
         
         if validate_csrf:
             # 3. Compare the token from the header with the token from the JWT.

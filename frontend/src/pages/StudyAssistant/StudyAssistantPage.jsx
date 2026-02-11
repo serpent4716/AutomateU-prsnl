@@ -21,14 +21,14 @@ export default function StudyAssistantPage() {
             color: "bg-purple-50 hover:bg-purple-100 border-purple-200",
             iconColor: "text-purple-600",
         },
-        {
-            icon: Zap,
-            title: "Flashcards",
-            description: "Interactive flashcards for quick learning",
-            path: "/study-assistant/flashcards",
-            color: "bg-orange-50 hover:bg-orange-100 border-orange-200",
-            iconColor: "text-orange-600",
-        },
+        // {
+        //     icon: Zap,
+        //     title: "Flashcards",
+        //     description: "Interactive flashcards for quick learning",
+        //     path: "/study-assistant/flashcards",
+        //     color: "bg-orange-50 hover:bg-orange-100 border-orange-200",
+        //     iconColor: "text-orange-600",
+        // },
         {
             icon: FileText,
             title: "Summarizer",
@@ -75,7 +75,7 @@ export default function StudyAssistantPage() {
                     </div>
 
                     {/* Study Tools Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10 max-w-5xl mx-auto">
                         {studyTools.map((tool) => {
                             const Icon = tool.icon;
                             return (
@@ -86,7 +86,7 @@ export default function StudyAssistantPage() {
                                 >
                                     <div className="p-8 text-center">
                                         <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-sm mb-6">
-                                            <Icon className={`h-8 w-8 ${tool.iconColor}`} />
+                                            <Icon className={`h-8 w -8 ${tool.iconColor}`} />
                                         </div>
                                         <h3 className="text-xl font-semibold text-gray-900 mb-3">{tool.title}</h3>
                                         <p className="text-gray-600 leading-relaxed">{tool.description}</p>
