@@ -1,5 +1,0 @@
-=== DATABASE INFO (tag: CCN) ===
-Documents: 0
-IDs: 0
-Metadatas: 0
-
