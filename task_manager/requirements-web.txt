@@ -19,3 +19,4 @@ beautifulsoup4
 cryptography
 google-generativeai
 numpy
+langchain-chroma>=0.1.2
