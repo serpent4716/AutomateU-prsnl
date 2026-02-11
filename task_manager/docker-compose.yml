@@ -31,26 +31,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # Build the heavy image ONCE
-  app:
-    build: .
-    image: myapp:latest
-    env_file: .env
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CHROMA_DATA_PATH: /app/data/chroma
-    volumes:
-      - ./data_store/chroma:/app/data/chroma  # externalized DB
-      - ./:/app
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   web:
-    image: myapp:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: myapp-web:latest
     command: uvicorn app.main:app --host 0.0.0.0 --port ${FASTAPI_PORT:-8000} --reload
     env_file: .env
     environment:
@@ -67,11 +52,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      app:
-        condition: service_started
 
   worker:
-    image: myapp:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: myapp-worker:latest
     command: celery -A app.celery_worker:celery_app worker --loglevel=info
     env_file: .env
     environment:
@@ -88,7 +74,7 @@ services:
         condition: service_healthy
 
   beat:
-    image: myapp:latest
+    image: myapp-worker:latest
     command: celery -A app.celery_worker:celery_app beat --loglevel=info
     env_file: .env
     environment:
@@ -103,6 +89,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      worker:
+        condition: service_started
 
 volumes:
   postgres-data:
