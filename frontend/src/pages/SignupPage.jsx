@@ -13,13 +13,14 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   // 2. Add an error state to display feedback to the user
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const navigate = useNavigate();
 
  const handleSignup = async (e) => {
    e.preventDefault();
    setIsLoading(true);
    setError(null); // Clear previous errors
-   // setSuccess(null); // You might want to add a success state as well
+   setSuccess(null);
 
    // Check for minimum password length
    if (formData.password.length < 8) {
@@ -51,10 +52,10 @@ export default function SignupPage() {
 
      await api.post("/users", payload);
 
-     // UPGRADE: Replace alert() with a non-blocking UI update.
-     // For example, you could set a success message and then navigate.
-     // setSuccess("Account created successfully! Redirecting to login...");
-     // Using setTimeout to let the user see the message before redirecting.
+     setSuccess(
+       "Registration successful. A verification email has been sent to your registered email ID."
+     );
+
      setTimeout(() => {
         navigate("/login");
      }, 2000); // Redirect after 2 seconds
@@ -142,6 +143,7 @@ export default function SignupPage() {
           
           {/* 4. Display the error message right above the button */}
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {success && <p className="text-green-600 text-sm text-center">{success}</p>}
 
           <button
             type="submit"
