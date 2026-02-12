@@ -34,6 +34,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from datetime import timedelta
 import boto3
+from botocore.config import Config
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
@@ -114,7 +115,8 @@ SES_CLIENT = boto3.client(
     'ses',
     region_name=settings.AWS_SES_REGION,
     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    config=Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 2}),
 )
 
 # Configure itsdangerous Serializer
@@ -172,8 +174,8 @@ def send_verification_email(user_email: str, user_id: int):
         print(f"Verification email sent to {user_email}")
     except Exception as e:
         print(f"Error sending email: {e}")
-        # This HTTP Exception will be caught by the calling endpoint
-        raise HTTPException(status_code=500, detail="Error sending verification email.")
+        # Never block user signup response on email provider issues.
+        return
 
 def _set_login_cookies(response: Response, user_id: int):
     """
@@ -458,7 +460,11 @@ async def ask_question(
     return schemas.AskResponse(answer=answer, sources=sources, conversation_id=conversation_id)
 
 @app.post("/users", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+async def create_user(
+    user: schemas.UserCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """
     FIXED: Handles standard email/password signup.
     Creates user as unverified and sends verification email.
@@ -483,15 +489,8 @@ async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
 
-    try:
-        print(f"Sending verification mail to user ID {db_user.id} at {db_user.email}")
-        send_verification_email(db_user.email, db_user.id)
-    except HTTPException as e:
-        # FIX: Don't delete the user. Just report the error.
-        print(f"Failed to send email, but user {db_user.id} was created.")
-        # We don't re-raise the exception, as user creation was successful.
-        # We can return a special status in the response body if needed.
-        pass
+    # Dispatch email out of band to keep signup fast on cold starts.
+    background_tasks.add_task(send_verification_email, db_user.email, db_user.id)
 
     return db_user
 
