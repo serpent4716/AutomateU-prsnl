@@ -23,4 +23,5 @@ langchain-chroma>=0.1.2
 langchain==0.3.27
 chromadb>=0.5
 langchain-huggingface
+PyMuPDF
 
