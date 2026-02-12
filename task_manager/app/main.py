@@ -481,7 +481,7 @@ async def create_user(
         email=user.email,
         hashed_password=hashed_password,
         is_admin=is_admin,
-        is_verified=False  # FIX: Start as unverified
+        is_verified=True  # TEMP: bypass email verification until SES is finalized
     )
     
     # FIX: Commit user to DB *before* sending email
@@ -489,8 +489,9 @@ async def create_user(
     db.commit()
     db.refresh(db_user)
 
-    # Dispatch email out of band to keep signup fast on cold starts.
-    background_tasks.add_task(send_verification_email, db_user.email, db_user.id)
+    # TEMP: Email verification disabled for deployment stability.
+    # Re-enable once SES configuration is stable.
+    # background_tasks.add_task(send_verification_email, db_user.email, db_user.id)
 
     return db_user
 
