@@ -16,9 +16,23 @@ def normalize_database_url(raw_url: str) -> str:
     return raw_url
 
 
-RAW_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb")
+APP_ENV = os.getenv("APP_ENV", "development").lower()
+RAW_DATABASE_URL = os.getenv("DATABASE_URL")
+if not RAW_DATABASE_URL:
+    if APP_ENV == "production":
+        raise RuntimeError("DATABASE_URL is not set for production.")
+    RAW_DATABASE_URL = "postgresql+psycopg2://taskuser:taskpass@db:5432/taskdb"
 DATABASE_URL = normalize_database_url(RAW_DATABASE_URL)
 
-engine = create_engine(DATABASE_URL, connect_args={}, pool_pre_ping=True)
+connect_args = {}
+if DATABASE_URL.startswith("postgresql+psycopg2://"):
+    connect_args = {"connect_timeout": 10}
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
