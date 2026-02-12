@@ -16,6 +16,7 @@ from rapidfuzz import process
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import app.models as models
+from app.database import DATABASE_URL
 
 load_dotenv()
 
@@ -50,7 +51,7 @@ CHROMA_PATH = os.path.join(DATA_DIR, "chroma")
 USE_CENTRAL_DB = True
 CENTRAL_TAG = "central"
 
-engine = create_engine(os.getenv("DATABASE_URL"))
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

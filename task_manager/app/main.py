@@ -1469,13 +1469,16 @@ async def download_document(
     )
 
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "redis")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_URL = os.environ.get("REDIS_URL")
+if not REDIS_URL:
+    redis_host = os.environ.get("REDIS_HOST", "redis")
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    REDIS_URL = f"redis://{redis_host}:{redis_port}/0"
 
 redis_client = aioredis.from_url(
-    f"redis://{REDIS_HOST}:{REDIS_PORT}",
-    decode_responses=True, # Decode responses from bytes to strings
-    health_check_interval=30
+    REDIS_URL,
+    decode_responses=True,  # Decode responses from bytes to strings
+    health_check_interval=30,
 )
 
 async def get_redis_client():
@@ -1490,7 +1493,7 @@ async def get_redis_client():
         return redis_client
     except Exception as e:
         # This will be caught by FastAPI
-        print(f"Could not connect to Redis at {REDIS_HOST}:{REDIS_PORT}: {e}")
+        print(f"Could not connect to Redis at {REDIS_URL}: {e}")
         raise HTTPException(
             status_code=503, # 503 Service Unavailable
             detail=f"Could not connect to Redis cache: {e}"

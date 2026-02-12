@@ -12,9 +12,10 @@ import app.auth as auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
+from app.database import DATABASE_URL
 
 
-engine = create_engine(os.getenv("DATABASE_URL"))
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_standalone_session():

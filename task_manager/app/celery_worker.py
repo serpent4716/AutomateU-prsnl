@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func, case
 from app.utils.basic_1 import run_full_generation_process
 from sqlalchemy.orm import aliased
+from app.database import DATABASE_URL
 # We import the database URL so the worker knows how to connect to your main SQL database.
 from dotenv import load_dotenv
 load_dotenv()
@@ -19,7 +20,7 @@ import os
 
 # --- Standalone DB Session for Background Task ---
 # The background task runs in a separate context and needs its own DB connection.
-engine = create_engine(os.getenv("DATABASE_URL"))
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_standalone_session():
@@ -38,7 +39,6 @@ def process_document_task(doc_id: str, file_path: str, tag: str, user_id: str):
     print(f"CELERY WORKER: Received job for doc_id: {doc_id}")
     
     # The worker gets the database URL from your configuration.
-    DATABASE_URL = os.getenv("DATABASE_URL")
     db_url = str(DATABASE_URL)
     
     # This is the key part: the worker calls the exact same robust, self-contained
@@ -65,7 +65,6 @@ def process_quiz_document(doc_id: str, file_path: str, tag: str, user_id: str):
 
     print(f"CELERY WORKER: Received job for Quiz doc_id: {doc_id}")
     
-    DATABASE_URL = os.getenv("DATABASE_URL")
     db_url = str(DATABASE_URL)
     
     quiz.run_quiz_ingestion_pipeline(
