@@ -16,9 +16,7 @@ import app.database as database
 import app.auth as auth
 from typing import List, Optional
 import numpy as np
-import app.utils.populate_database as populate_db
-import app.utils.quiz as quiz
-from app.utils.populate_database import DATA_DIR, CHROMA_PATH
+import importlib
 from app.celery_config import celery_app
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.models import APIKey
@@ -38,6 +36,26 @@ from botocore.config import Config
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
+
+
+class _LazyModule:
+    """Lazy import helper to keep web memory/startup low on small instances."""
+
+    def __init__(self, module_name: str):
+        self.module_name = module_name
+        self._module = None
+
+    def _load(self):
+        if self._module is None:
+            self._module = importlib.import_module(self.module_name)
+        return self._module
+
+    def __getattr__(self, item):
+        return getattr(self._load(), item)
+
+
+populate_db = _LazyModule("app.utils.populate_database")
+quiz = _LazyModule("app.utils.quiz")
 
 class Settings(BaseSettings):
     SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
