@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Response, Cookie, UploadFile, File, Form, BackgroundTasks, Header, Security
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload, aliased
-from sqlalchemy import desc, func, extract, and_ , case
+from sqlalchemy import desc, func, extract, and_, case, text, inspect
 from fastapi.responses import FileResponse
 from datetime import datetime, date , timezone
 import uuid
@@ -114,6 +114,7 @@ def _build_cors_origins() -> list[str]:
 
 origins = _build_cors_origins()
 # CORS middleware
+# access control allow origin 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -216,6 +217,22 @@ def _set_login_cookies(response: Response, user_id: int):
 @app.get("/")
 def read_root():
     return {"message": "Hello World"}
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/healthz/db")
+def healthz_db():
+    try:
+        with database.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        has_users = inspect(database.engine).has_table("users")
+        return {"db": "ok", "users_table_exists": has_users}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database health check failed: {e}")
 @app.post("/upload_doc")
 async def upload_doc(
    # background_tasks: BackgroundTasks,
