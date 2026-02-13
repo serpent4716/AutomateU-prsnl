@@ -510,6 +510,10 @@ async def create_user(
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    # bcrypt accepts max 72 bytes; enforce server-side to avoid runtime 500s.
+    if len(user.password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password is too long (max 72 bytes).")
         
     hashed_password = auth.get_password_hash(user.password)
     is_admin = user.email == "admin@example.com" # Your original logic
