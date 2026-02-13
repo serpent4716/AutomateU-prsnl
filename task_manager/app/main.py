@@ -79,7 +79,8 @@ settings = Settings()
 app = FastAPI()
 # Keep create_all only for non-production local workflows, unless explicitly
 # enabled for first-time production bootstrap.
-AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true"
+# AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true"
+AUTO_CREATE_TABLES = "true"
 if settings.APP_ENV.lower() != "production" or AUTO_CREATE_TABLES:
     models.Base.metadata.create_all(bind=database.engine)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
