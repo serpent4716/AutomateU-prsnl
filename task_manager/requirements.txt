@@ -34,4 +34,4 @@ beautifulsoup4
 cryptography 
 python-docx
 itsdangerous
-boto3
+requests

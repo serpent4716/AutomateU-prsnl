@@ -49,8 +49,7 @@ export default function LoginPage({setUserInfo}) {
   }
 
   const handleGithubLogin = () => {
-    // TODO: Implement GitHub OAuth
-    console.log("GitHub login clicked - implement OAuth here")
+    setError("GitHub login will be available soon.")
   }
 
   return (

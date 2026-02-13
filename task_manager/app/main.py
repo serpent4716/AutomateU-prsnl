@@ -31,8 +31,7 @@ from pydantic import EmailStr
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from datetime import timedelta
-import boto3
-from botocore.config import Config
+import requests
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
@@ -59,10 +58,8 @@ quiz = _LazyModule("app.utils.quiz")
 
 class Settings(BaseSettings):
     SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
-    AWS_ACCESS_KEY_ID: str
-    AWS_SECRET_ACCESS_KEY: str
-    AWS_SES_REGION: str
-    SENDER_EMAIL: EmailStr
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM_EMAIL: EmailStr = "jeet.patel23@spit.ac.in"
     FRONTEND_URL: str = "http://localhost:3000"
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
@@ -79,8 +76,7 @@ settings = Settings()
 app = FastAPI()
 # Keep create_all only for non-production local workflows, unless explicitly
 # enabled for first-time production bootstrap.
-# AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true"
-AUTO_CREATE_TABLES = "true"
+AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true"
 if settings.APP_ENV.lower() != "production" or AUTO_CREATE_TABLES:
     models.Base.metadata.create_all(bind=database.engine)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -133,14 +129,6 @@ app.add_middleware(
 
 
     
-SES_CLIENT = boto3.client(
-    'ses',
-    region_name=settings.AWS_SES_REGION,
-    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    config=Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 2}),
-)
-
 # Configure itsdangerous Serializer
 URL_SERIALIZER = URLSafeTimedSerializer(settings.SECRET_KEY)
 
@@ -176,23 +164,37 @@ async def get_current_active_user(
     
 def send_verification_email(user_email: str, user_id: int):
     """
-    Generates a verification token and sends it via AWS SES.
+    Generates a verification token and sends it via Resend.
     """
     token = URL_SERIALIZER.dumps(user_id, salt='email-verification')
     verification_link = f"{settings.BACKEND_URL}/auth/verify-email?token={token}"
-    
+
+    if not settings.RESEND_API_KEY:
+        print("RESEND_API_KEY is not configured; skipping verification email.")
+        return
+
     try:
-        SES_CLIENT.send_email(
-            Source=settings.SENDER_EMAIL,
-            Destination={'ToAddresses': [user_email]},
-            Message={
-                'Subject': {'Data': 'Welcome to AutomateU! Verify Your Email', 'Charset': 'UTF-8'},
-                'Body': {
-                    'Text': {'Data': f'Click to verify: {verification_link}', 'Charset': 'UTF-8'},
-                    'Html': {'Data': f'<p>Welcome to AutomateU! Please click the link to verify your email:</p><p><a href="{verification_link}">Verify My Email</a></p>', 'Charset': 'UTF-8'}
-                }
-            }
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": [user_email],
+                "subject": "Welcome to AutomateU! Verify Your Email",
+                "html": (
+                    "<p>Welcome to AutomateU! Please click the link to verify your email:</p>"
+                    f"<p><a href=\"{verification_link}\">Verify My Email</a></p>"
+                    "<p>Until you verify your email, you will not be able to log in and use dashboard/tasks/study assistant features.</p>"
+                ),
+            },
+            timeout=10,
         )
+        if response.status_code >= 300:
+            print(f"Resend error ({response.status_code}): {response.text}")
+            return
         print(f"Verification email sent to {user_email}")
     except Exception as e:
         print(f"Error sending email: {e}")
@@ -561,7 +563,10 @@ async def login(response: Response, request: schemas.LoginRequest, db: Session =
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email not verified. Please check your inbox for a verification link.",
+            detail=(
+                "Email not verified. Please check your inbox for a verification link. "
+                "Until verified, login and access to dashboard, tasks, and study assistant features are disabled."
+            ),
         )
 
     csrf_token = _set_login_cookies(response, user.id)

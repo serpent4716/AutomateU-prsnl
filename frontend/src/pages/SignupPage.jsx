@@ -14,6 +14,7 @@ export default function SignupPage() {
   // 2. Add an error state to display feedback to the user
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [info, setInfo] = useState(null);
   const navigate = useNavigate();
 
  const handleSignup = async (e) => {
@@ -21,6 +22,7 @@ export default function SignupPage() {
    setIsLoading(true);
    setError(null); // Clear previous errors
    setSuccess(null);
+   setInfo(null);
 
    // Check for minimum password length
    if (formData.password.length < 8) {
@@ -53,7 +55,7 @@ export default function SignupPage() {
      await api.post("/users", payload);
 
      setSuccess(
-       "Registration successful. A verification email has been sent to your registered email ID."
+       "Registration successful. A verification email has been sent. Until verified, you cannot log in and use dashboard, tasks, or study assistant features."
      );
 
      setTimeout(() => {
@@ -79,6 +81,10 @@ export default function SignupPage() {
       return;
     }
     window.location.href = `${base}/auth/login/google`;
+  };
+
+  const handleGithubSignup = () => {
+    setInfo("GitHub signup will be available soon.");
   };
 
   return (
@@ -153,6 +159,7 @@ export default function SignupPage() {
           {/* 4. Display the error message right above the button */}
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           {success && <p className="text-green-600 text-sm text-center">{success}</p>}
+          {info && <p className="text-blue-600 text-sm text-center">{info}</p>}
 
           <button
             type="submit"
@@ -176,7 +183,10 @@ export default function SignupPage() {
           >
             Continue with Google
           </button>
-          <button className="w-full border border-gray-300 py-2 px-4 rounded-lg bg-white hover:bg-gray-50 transition">
+          <button
+            onClick={handleGithubSignup}
+            className="w-full border border-gray-300 py-2 px-4 rounded-lg bg-white hover:bg-gray-50 transition"
+          >
             Continue with GitHub
           </button>
         </div>
