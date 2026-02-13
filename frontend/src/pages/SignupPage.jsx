@@ -72,6 +72,15 @@ export default function SignupPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleGoogleSignup = () => {
+    const base = (api.defaults.baseURL || "").replace(/\/+$/, "");
+    if (!base) {
+      setError("Google signup is not configured. Missing API base URL.");
+      return;
+    }
+    window.location.href = `${base}/auth/login/google`;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6">
@@ -161,7 +170,10 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <button className="w-full border border-gray-300 py-2 px-4 rounded-lg bg-white hover:bg-gray-50 transition">
+          <button
+            onClick={handleGoogleSignup}
+            className="w-full border border-gray-300 py-2 px-4 rounded-lg bg-white hover:bg-gray-50 transition"
+          >
             Continue with Google
           </button>
           <button className="w-full border border-gray-300 py-2 px-4 rounded-lg bg-white hover:bg-gray-50 transition">

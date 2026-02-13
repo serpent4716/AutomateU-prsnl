@@ -40,8 +40,12 @@ export default function LoginPage({setUserInfo}) {
   };
 
   const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    console.log("Google login clicked - implement OAuth here")
+    const base = (api.defaults.baseURL || "").replace(/\/+$/, "");
+    if (!base) {
+      setError("Google login is not configured. Missing API base URL.");
+      return;
+    }
+    window.location.href = `${base}/auth/login/google`;
   }
 
   const handleGithubLogin = () => {
