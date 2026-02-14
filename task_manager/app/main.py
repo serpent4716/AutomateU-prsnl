@@ -219,6 +219,25 @@ async def get_current_active_user(
         return user
     except HTTPException as e:
         raise e
+
+
+async def get_current_read_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> models.User:
+    """
+    Read-only auth for GET endpoints.
+    CSRF validation is not required for safe methods like document viewing.
+    """
+    try:
+        return auth.get_current_user_from_cookie(
+            request=request,
+            csrf_token_from_header=None,
+            db=db,
+            validate_csrf=False,
+        )
+    except HTTPException as e:
+        raise e
     
 def send_verification_email(user_email: str, user_id: int):
     """
@@ -386,7 +405,7 @@ async def upload_doc(
 @app.get("/document/{doc_id}")
 async def get_document(
     doc_id: str,
-    current_user: models.User = Depends(get_current_active_user),
+    current_user: models.User = Depends(get_current_read_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -567,33 +586,32 @@ async def ask_question(
     db.add(user_message)
     db.commit()
 
-    if API_ONLY_RAG:
-        # API-only mode: bypass local retrieval/vector pipelines entirely.
-        sources = []
-        formatted_history = _format_chat_history_light(chat_history_messages)
-        answer = _query_gemini_api_only(ask_request.question, formatted_history)
-    else:
-        # Tree-based lexical retrieval (topic/page hierarchy aware)
-        try:
-            context_docs = populate_db.retrieve_tree_based_context(
-                query=ask_request.question,
-                tag=ask_request.tag,
-                top_k=3
-            )
-            context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
-            sources = populate_db.format_sources(context_docs)
-        except Exception as e:
-            print(f"Context retrieval failed for tag={ask_request.tag}: {e}")
-            context_text = ""
-            sources = []
+    # Prefer retrieval + citations (page numbers) whenever available.
+    # If retrieval stack is unavailable/fails, fallback to API-only answering.
+    sources = []
+    context_text = ""
+    try:
+        context_docs = populate_db.retrieve_tree_based_context(
+            query=ask_request.question,
+            tag=ask_request.tag,
+            top_k=3
+        )
+        context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
+        sources = populate_db.format_sources(context_docs)
+    except Exception as e:
+        print(f"Context retrieval unavailable for tag={ask_request.tag}: {e}")
 
-        # Get response from Gemini-backed RAG answerer
-        formatted_history = populate_db.format_chat_history(chat_history_messages)
+    if context_text.strip():
         try:
+            formatted_history = populate_db.format_chat_history(chat_history_messages)
             answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
         except Exception as e:
-            print(f"LLM query failed: {e}")
-            raise HTTPException(status_code=503, detail="Assistant is temporarily unavailable. Please try again.")
+            print(f"RAG LLM query failed, falling back to API-only mode: {e}")
+            formatted_history = _format_chat_history_light(chat_history_messages)
+            answer = _query_gemini_api_only(ask_request.question, formatted_history)
+    else:
+        formatted_history = _format_chat_history_light(chat_history_messages)
+        answer = _query_gemini_api_only(ask_request.question, formatted_history)
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)

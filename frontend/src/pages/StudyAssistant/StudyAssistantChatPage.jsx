@@ -107,6 +107,7 @@ function StudyAssistantChatPageContent({ user }) {
   const [viewingDocName, setViewingDocName] = useState("");
   const [expandedTags, setExpandedTags] = useState({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
   // --- THE FIX: Moved function definitions out of useEffect ---
   // We wrap them in useCallback to prevent them from being recreated on every render.
   const fetchConversations = useCallback(async () => {
@@ -347,7 +348,7 @@ const handleViewDocument = (docId, docName, tag) => {
   };
 
   const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
-  const handleCopyToClipboard = (text) => {
+  const handleCopyToClipboard = (text, messageId) => {
     if (document.execCommand) {
       const textArea = document.createElement("textarea");
       textArea.value = text;
@@ -360,9 +361,17 @@ const handleViewDocument = (docId, docName, tag) => {
         console.error('Fallback: Oops, unable to copy', err);
       }
       document.body.removeChild(textArea);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 500);
       return;
     }
-    navigator.clipboard.writeText(text).catch(err => console.error('Failed to copy text: ', err));
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopiedMessageId(messageId);
+        setTimeout(() => setCopiedMessageId(null), 500);
+      })
+      .catch(err => console.error('Failed to copy text: ', err));
   };
   
   const DocumentStatusIcon = ({ status }) => {
@@ -540,9 +549,16 @@ const handleViewDocument = (docId, docName, tag) => {
                     )}
                     
                     {msg.role === 'assistant' && (
-                      <button onClick={() => handleCopyToClipboard(msg.content)} className="absolute -top-2 -right-2 p-1 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Copy size={14} />
-                      </button>
+                      <>
+                        <button onClick={() => handleCopyToClipboard(msg.content, msg.id || index)} className="absolute -top-2 -right-2 p-1 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Copy size={14} />
+                        </button>
+                        {copiedMessageId === (msg.id || index) && (
+                          <div className="absolute -top-10 right-0 px-2 py-1 rounded-md text-xs bg-gray-900 text-white shadow-lg animate-pulse">
+                            Copied
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
