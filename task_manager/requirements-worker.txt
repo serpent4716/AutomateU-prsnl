@@ -1,38 +1,14 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-fastapi
-uvicorn
-gunicorn
-python-jose[cryptography]
-passlib==1.7.4
-bcrypt==4.0.1
-pydantic[email]
-pydantic-settings
-sqlalchemy
-databases
-alembic
-python-multipart
-redis
+# Worker deps optimized for API_ONLY_RAG mode.
+# Heavy local RAG/embedding/OCR stacks are intentionally excluded.
 celery[redis]
+redis
+sqlalchemy
 psycopg2-binary
-authlib
-itsdangerous
+python-dotenv
+
 boto3
-beautifulsoup4
-cryptography
 requests
-google-cloud-vision
-nltk
-rapidfuzz
-pdfplumber
-chromadb>=0.5
-langchain-chroma>=0.1.2
-PyMuPDF
+beautifulsoup4
+
 google-generativeai
-groq
-langchain==0.3.27
-langchain_huggingface
-sentence_transformers
 python-docx
-pytest
-numpy
