@@ -33,21 +33,56 @@ const Modal = ({ isOpen, onClose, children }) => {
         </div>
     );
 };
-const DocumentViewer = ({ docId, tag , filename}) => {
+const DocumentViewer = ({ docId }) => {
+    const [blobUrl, setBlobUrl] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+    const [isLoadingDoc, setIsLoadingDoc] = useState(false);
+
+    useEffect(() => {
+      let revokedUrl = null;
+      const loadDocument = async () => {
+        if (!docId) return;
+        setIsLoadingDoc(true);
+        setLoadError(null);
+        try {
+          const response = await api.get(`/document/${docId}`, { responseType: "blob" });
+          const url = URL.createObjectURL(response.data);
+          revokedUrl = url;
+          setBlobUrl(url);
+        } catch (err) {
+          setLoadError(err.response?.data?.detail || "Unable to load document.");
+          setBlobUrl(null);
+        } finally {
+          setIsLoadingDoc(false);
+        }
+      };
+
+      loadDocument();
+      return () => {
+        if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+      };
+    }, [docId]);
+
     if (!docId) return null;
 
-    const base = (api.defaults.baseURL || "").replace(/\/+$/, "");
-    const documentUrl = `${base}/document/${docId}`;
+    if (isLoadingDoc) {
+      return <div className="h-full w-full flex items-center justify-center text-gray-500">Loading document...</div>;
+    }
+
+    if (loadError) {
+      return <div className="h-full w-full flex items-center justify-center text-red-500 text-sm">{loadError}</div>;
+    }
+
+    if (!blobUrl) return null;
 
     return (
-        <iframe
-            src={documentUrl}
-            title={`Document Viewer - ${docId}`}
-            className="w-full h-full border-0"
-            seamless
-        >
-            Your browser does not support embedding this file type.
-        </iframe>
+      <iframe
+        src={blobUrl}
+        title={`Document Viewer - ${docId}`}
+        className="w-full h-full border-0"
+      >
+        Your browser does not support embedding this file type.
+      </iframe>
     );
 };
 function StudyAssistantChatPageContent({ user }) {

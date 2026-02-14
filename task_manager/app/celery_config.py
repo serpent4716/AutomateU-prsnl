@@ -44,6 +44,10 @@ celery_app.conf.update(
     # any confusion or bugs related to different timezones.
     timezone="UTC",
     enable_utc=True,
+    # Stability defaults for low-memory instances.
+    worker_prefetch_multiplier=int(os.getenv("CELERY_PREFETCH_MULTIPLIER", "1")),
+    task_acks_late=True,
+    worker_max_tasks_per_child=int(os.getenv("CELERY_MAX_TASKS_PER_CHILD", "1")),
 )
 
 # Only schedule the extraction task

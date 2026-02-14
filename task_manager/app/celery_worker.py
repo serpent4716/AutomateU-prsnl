@@ -54,6 +54,7 @@ def process_document_task(
     # existing logic, not rewriting it. This function handles everything:
     # opening the file, OCR, cleaning, embedding, and updating the SQL database.
     local_path = file_path
+    db = get_standalone_session()
     try:
         if s3_key:
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
@@ -66,7 +67,19 @@ def process_document_task(
             tag=tag,
             user_id=user_id
         )
+    except Exception as e:
+        print(f"CELERY WORKER ERROR (doc_id={doc_id}): {e}")
+        try:
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.FAILED}
+            )
+            db.commit()
+        except Exception as db_err:
+            print(f"CELERY WORKER ERROR updating failed status (doc_id={doc_id}): {db_err}")
+            db.rollback()
+        raise
     finally:
+        db.close()
         if s3_key and local_path and os.path.exists(local_path):
             try:
                 os.remove(local_path)
@@ -95,6 +108,7 @@ def process_quiz_document(
     db_url = str(DATABASE_URL)
     
     local_path = file_path
+    db = get_standalone_session()
     try:
         if s3_key:
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
@@ -107,7 +121,19 @@ def process_quiz_document(
             tag=tag,
             user_id=user_id
         )
+    except Exception as e:
+        print(f"CELERY WORKER ERROR (quiz doc_id={doc_id}): {e}")
+        try:
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.FAILED}
+            )
+            db.commit()
+        except Exception as db_err:
+            print(f"CELERY WORKER ERROR updating failed quiz status (doc_id={doc_id}): {db_err}")
+            db.rollback()
+        raise
     finally:
+        db.close()
         if s3_key and local_path and os.path.exists(local_path):
             try:
                 os.remove(local_path)

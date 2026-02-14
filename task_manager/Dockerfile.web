@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements-web.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:${PORT:-10000} --access-logfile - --error-logfile - --log-level info app.main:app"]
+CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:${PORT:-10000} --timeout ${GUNICORN_TIMEOUT:-180} --graceful-timeout ${GUNICORN_GRACEFUL_TIMEOUT:-60} --keep-alive ${GUNICORN_KEEPALIVE:-5} --access-logfile - --error-logfile - --log-level info app.main:app"]

@@ -73,6 +73,7 @@ class Settings(BaseSettings):
         extra="allow",
     )
 settings = Settings()
+RAG_QUEUE_NAME = os.getenv("RAG_QUEUE", "celery")
 
 app = FastAPI()
 # Keep create_all only for non-production local workflows, unless explicitly
@@ -304,17 +305,25 @@ async def upload_doc(
     #     tag=tag,
     #     user_id=str(current_user.id)
     # )
-    celery_app.send_task(
-        "process_document_task",
-        kwargs={
-            "doc_id": doc_id,
-            "file_path": None if storage.s3_enabled() else permanent_file_path,
-            "s3_key": s3_key if storage.s3_enabled() else None,
-            "source_filename": file.filename,
-            "tag": tag,
-            "user_id": str(current_user.id),
-        },
-    )
+    try:
+        celery_app.send_task(
+            "process_document_task",
+            kwargs={
+                "doc_id": doc_id,
+                "file_path": None if storage.s3_enabled() else permanent_file_path,
+                "s3_key": s3_key if storage.s3_enabled() else None,
+                "source_filename": file.filename,
+                "tag": tag,
+                "user_id": str(current_user.id),
+            },
+            queue=RAG_QUEUE_NAME,
+        )
+    except Exception as e:
+        db.query(models.Document).filter(models.Document.id == doc_id).update(
+            {"status": models.DocumentStatus.FAILED}
+        )
+        db.commit()
+        raise HTTPException(status_code=503, detail=f"Failed to queue document processing task: {e}")
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
     return schemas.Document.model_validate(db_document)
@@ -1199,17 +1208,25 @@ async def upload_document_for_quiz(
         )
 
     # Start the Celery task
-    celery_app.send_task(
-        "process_quiz_document",
-        kwargs={
-            "doc_id": doc_id,
-            "file_path": None if storage.s3_enabled() else permanent_file_path,
-            "s3_key": s3_key if storage.s3_enabled() else None,
-            "source_filename": file.filename,
-            "tag": tag,
-            "user_id": str(current_user.id),
-        },
-    )
+    try:
+        celery_app.send_task(
+            "process_quiz_document",
+            kwargs={
+                "doc_id": doc_id,
+                "file_path": None if storage.s3_enabled() else permanent_file_path,
+                "s3_key": s3_key if storage.s3_enabled() else None,
+                "source_filename": file.filename,
+                "tag": tag,
+                "user_id": str(current_user.id),
+            },
+            queue=RAG_QUEUE_NAME,
+        )
+    except Exception as e:
+        db.query(models.Document).filter(models.Document.id == doc_id).update(
+            {"status": models.DocumentStatus.FAILED}
+        )
+        db.commit()
+        raise HTTPException(status_code=503, detail=f"Failed to queue quiz document processing task: {e}")
     
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
