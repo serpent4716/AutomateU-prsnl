@@ -4,6 +4,7 @@ import { MessageCircle, CalendarDays, Search, CheckSquare, BookOpen, FileText, T
 import { useNavigate } from "react-router-dom"
 import TextType from "../components/TextType/TextType"
 import ProductivityMetrics from "../components/ProductivityMetrics/ProductivityMetrics"
+import api from "../services/api"
 
 // Dark theme visual components
 import LiquidEther from "../components/LiquidEther/LiquidEther.jsx"
@@ -18,6 +19,7 @@ function cn(...classes) {
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [tasks, setTasks] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -26,6 +28,18 @@ export default function DashboardPage() {
       navigate("/login")
       return
     }
+
+    const fetchTasks = async () => {
+      try {
+        const response = await api.get("/tasks")
+        setTasks(response.data || [])
+      } catch (err) {
+        console.error("Failed to fetch dashboard tasks:", err)
+        setTasks([])
+      }
+    }
+
+    fetchTasks()
   }, [navigate])
 
   // Quick Actions (no dark reference in original, so we match Tasks-style blue gradient)
@@ -166,10 +180,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl lg:text-4xl font-extrabold tracking-tight mb-3 text-gray-700 dark:text-white font-figtree">
               <TextType
                 text={[
-                  "Good morning!",
-                  "Welcome to AutomateU",
-                  "Manage tasks, track attendance,",
-                  "Find lost items & chat with AI",
+                  "Hello welcome to AutomateU",
                 ]}
                 typingSpeed={70}
                 pauseDuration={2500}
@@ -182,14 +193,7 @@ export default function DashboardPage() {
               />
             </h1>
             <p className="text-base lg:text-lg text-gray-400 dark:text-gray-400 font-medium font-figtree leading-relaxed">
-              Let's make today{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 font-bold">
-                productive
-              </span>{" "}
-              and{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-400 font-bold">
-                efficient
-              </span>.
+              {tasks.length === 0 ? "Start with your first task (optional)." : "Track your progress and keep your momentum going."}
             </p>
           </div>
 
@@ -214,7 +218,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Your Performance
           </h2>
-          <ProductivityMetrics />
+          <ProductivityMetrics tasks={tasks} />
         </div>
 
         {/* Quick Action */}

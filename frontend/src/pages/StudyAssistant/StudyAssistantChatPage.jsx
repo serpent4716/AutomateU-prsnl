@@ -36,7 +36,8 @@ const Modal = ({ isOpen, onClose, children }) => {
 const DocumentViewer = ({ docId, tag , filename}) => {
     if (!docId) return null;
 
-    const documentUrl = `http://127.0.0.1:8000/uploaded_docs/${tag}/${docId}_${filename}`;
+    const base = (api.defaults.baseURL || "").replace(/\/+$/, "");
+    const documentUrl = `${base}/uploaded_docs/${tag}/${docId}_${filename}`;
 
     return (
         <iframe
@@ -291,7 +292,7 @@ const handleViewDocument = (docId, docName, tag) => {
       }
     } catch (err) {
       console.error("Failed to ask question:", err);
-      setError("Failed to get a response from the assistant.");
+      setError(err.response?.data?.detail || "Failed to get a response from the assistant.");
       setTimeout(() => setError(null), 3000);
       // Revert the optimistic UI update on failure
       setSelectedConversation(prev => ({...prev, messages: prev.messages.slice(0, -1)}));

@@ -59,7 +59,7 @@ quiz = _LazyModule("app.utils.quiz")
 class Settings(BaseSettings):
     SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
     RESEND_API_KEY: Optional[str] = None
-    RESEND_FROM_EMAIL: EmailStr = "jeet.patel23@spit.ac.in"
+    RESEND_FROM_EMAIL: EmailStr = "no-reply@mail.automateu.space"
     FRONTEND_URL: str = "http://localhost:3000"
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
@@ -276,6 +276,7 @@ async def upload_doc(
     db.commit()
     
     target_dir = os.path.join(UPLOAD_DOC_DIR, tag)
+    os.makedirs(target_dir, exist_ok=True)
     unique_name = f"{doc_id}_{file.filename}"
     permanent_file_path = os.path.join(target_dir, unique_name)
     # Use a unique name for the temp file to avoid conflicts
@@ -482,17 +483,26 @@ async def ask_question(
     db.commit()
 
     # Tree-based lexical retrieval (topic/page hierarchy aware)
-    context_docs = populate_db.retrieve_tree_based_context(
-        query=ask_request.question,
-        tag=ask_request.tag,
-        top_k=3
-    )
-    context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
-    sources = populate_db.format_sources(context_docs)
+    try:
+        context_docs = populate_db.retrieve_tree_based_context(
+            query=ask_request.question,
+            tag=ask_request.tag,
+            top_k=3
+        )
+        context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
+        sources = populate_db.format_sources(context_docs)
+    except Exception as e:
+        print(f"Context retrieval failed for tag={ask_request.tag}: {e}")
+        context_text = ""
+        sources = []
 
     # Get response from Gemini-backed RAG answerer
     formatted_history = populate_db.format_chat_history(chat_history_messages)
-    answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
+    try:
+        answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
+    except Exception as e:
+        print(f"LLM query failed: {e}")
+        raise HTTPException(status_code=503, detail="Assistant is temporarily unavailable. Please try again.")
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)
@@ -1149,6 +1159,7 @@ async def upload_document_for_quiz(
     db.commit()
     
     target_dir = os.path.join(UPLOAD_DOC_DIR, tag)
+    os.makedirs(target_dir, exist_ok=True)
     unique_name = f"{doc_id}_{file.filename}"
     permanent_file_path = os.path.join(target_dir, unique_name)
     # Use a unique name for the temp file to avoid conflicts
