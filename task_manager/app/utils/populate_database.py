@@ -370,7 +370,8 @@ def format_sources(docs: list[Document]) -> list[str]:
     for doc in docs:
         file_name = doc.metadata.get("source", "unknown.pdf")
         page = doc.metadata.get("page", "?")
-        sources.append(f"{file_name} (page {page})")
+        doc_id = doc.metadata.get("doc_id", "unknown")
+        sources.append(f"{file_name} (page {page}, doc {doc_id})")
     return list(set(sources))
 
 
@@ -424,7 +425,7 @@ def _lexical_score(query: str, content: str, metadata: dict) -> float:
     return score
 
 
-def retrieve_tree_based_context(query: str, tag: str, top_k: int = 3) -> list[Document]:
+def retrieve_tree_based_context(query: str, tag: str, top_k: int = 3, user_id: str | None = None) -> list[Document]:
     candidates: list[tuple[float, Document]] = []
 
     for doc_id, chroma_db in get_all_docs_collections(tag):
@@ -441,6 +442,8 @@ def retrieve_tree_based_context(query: str, tag: str, top_k: int = 3) -> list[Do
             md = meta or {}
             md["doc_id"] = md.get("doc_id", doc_id)
             md["tag"] = md.get("tag", tag)
+            if user_id is not None and str(md.get("user_id", "")) != str(user_id):
+                continue
             score = _lexical_score(query, content, md)
             if score <= 0:
                 continue

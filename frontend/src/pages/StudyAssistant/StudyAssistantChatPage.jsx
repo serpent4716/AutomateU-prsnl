@@ -34,50 +34,12 @@ const Modal = ({ isOpen, onClose, children }) => {
     );
 };
 const DocumentViewer = ({ docId }) => {
-    const [blobUrl, setBlobUrl] = useState(null);
-    const [loadError, setLoadError] = useState(null);
-    const [isLoadingDoc, setIsLoadingDoc] = useState(false);
-
-    useEffect(() => {
-      let revokedUrl = null;
-      const loadDocument = async () => {
-        if (!docId) return;
-        setIsLoadingDoc(true);
-        setLoadError(null);
-        try {
-          const response = await api.get(`/document/${docId}`, { responseType: "blob" });
-          const url = URL.createObjectURL(response.data);
-          revokedUrl = url;
-          setBlobUrl(url);
-        } catch (err) {
-          setLoadError(err.response?.data?.detail || "Unable to load document.");
-          setBlobUrl(null);
-        } finally {
-          setIsLoadingDoc(false);
-        }
-      };
-
-      loadDocument();
-      return () => {
-        if (revokedUrl) URL.revokeObjectURL(revokedUrl);
-      };
-    }, [docId]);
-
     if (!docId) return null;
-
-    if (isLoadingDoc) {
-      return <div className="h-full w-full flex items-center justify-center text-gray-500">Loading document...</div>;
-    }
-
-    if (loadError) {
-      return <div className="h-full w-full flex items-center justify-center text-red-500 text-sm">{loadError}</div>;
-    }
-
-    if (!blobUrl) return null;
+    const src = `${api.defaults.baseURL}/document/${docId}`;
 
     return (
       <iframe
-        src={blobUrl}
+        src={src}
         title={`Document Viewer - ${docId}`}
         className="w-full h-full border-0"
       >

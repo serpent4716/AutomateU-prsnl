@@ -160,7 +160,7 @@ def _format_chat_history_light(messages: list[models.Message]) -> str:
     return "\n".join(lines)
 
 
-def _query_gemini_api_only(question: str, chat_history: str = "") -> str:
+def _query_gemini_api_only(question: str, chat_history: str = "", context_text: str = "") -> str:
     try:
         import google.generativeai as genai
     except Exception as e:
@@ -175,7 +175,10 @@ def _query_gemini_api_only(question: str, chat_history: str = "") -> str:
     prompt = (
         "You are AutomateU study assistant.\n"
         "Answer clearly and concisely.\n"
-        "If user asks for unsafe/vulgar content, refuse politely.\n\n"
+        "If user asks for unsafe/vulgar content, refuse politely.\n"
+        "Use the provided context when available.\n"
+        "If context is empty, answer generally.\n\n"
+        f"Context:\n{context_text}\n\n"
         f"Chat history:\n{chat_history}\n\n"
         f"User question:\n{question}\n"
     )
@@ -219,6 +222,12 @@ async def get_current_active_user(
         return user
     except HTTPException as e:
         raise e
+
+
+def _frontend_route(path: str) -> str:
+    base = settings.FRONTEND_URL.rstrip("/")
+    clean_path = path if path.startswith("/") else f"/{path}"
+    return f"{base}/#{clean_path}"
 
 
 async def get_current_read_user(
@@ -586,32 +595,22 @@ async def ask_question(
     db.add(user_message)
     db.commit()
 
-    # Prefer retrieval + citations (page numbers) whenever available.
-    # If retrieval stack is unavailable/fails, fallback to API-only answering.
+    # API-only answer generation, but keep retrieval metadata for citations.
     sources = []
     context_text = ""
     try:
         context_docs = populate_db.retrieve_tree_based_context(
             query=ask_request.question,
             tag=ask_request.tag,
-            top_k=3
+            top_k=3,
+            user_id=str(current_user.id),
         )
         context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
         sources = populate_db.format_sources(context_docs)
     except Exception as e:
         print(f"Context retrieval unavailable for tag={ask_request.tag}: {e}")
-
-    if context_text.strip():
-        try:
-            formatted_history = populate_db.format_chat_history(chat_history_messages)
-            answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
-        except Exception as e:
-            print(f"RAG LLM query failed, falling back to API-only mode: {e}")
-            formatted_history = _format_chat_history_light(chat_history_messages)
-            answer = _query_gemini_api_only(ask_request.question, formatted_history)
-    else:
-        formatted_history = _format_chat_history_light(chat_history_messages)
-        answer = _query_gemini_api_only(ask_request.question, formatted_history)
+    formatted_history = _format_chat_history_light(chat_history_messages)
+    answer = _query_gemini_api_only(ask_request.question, formatted_history, context_text)
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)
@@ -742,11 +741,11 @@ async def auth_google_callback(request: Request, response: Response, db: Session
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google-auth-failed")
+        return RedirectResponse(url=_frontend_route("/login?error=google-auth-failed"))
 
     user_info = token.get('userinfo')
     if not user_info or not user_info.get('email'):
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=google-info-failed")
+        return RedirectResponse(url=_frontend_route("/login?error=google-info-failed"))
 
     user_email = user_info['email']
     user_name = user_info.get('name', 'AutomateU User')
@@ -770,7 +769,7 @@ async def auth_google_callback(request: Request, response: Response, db: Session
     _set_login_cookies(response, db_user.id)
     
     # Redirect to the frontend, which will now have the auth cookies
-    return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
+    return RedirectResponse(url=_frontend_route("/dashboard"))
 
 
 # --------------------------------------------------------------------------
