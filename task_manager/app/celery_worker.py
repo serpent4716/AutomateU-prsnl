@@ -3,9 +3,7 @@ from .celery_config import celery_app
 
 # We import your existing populate_database module, which contains all the
 # heavy-lifting logic we want to run in the background.
-from app.utils import populate_database as populate_db
 from app.utils.tasks import fetch_and_store_moodle_tasks
-from app.utils import quiz as quiz
 from app import models
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +16,9 @@ import app.storage as storage
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import importlib
+
+API_ONLY_RAG = os.getenv("API_ONLY_RAG", "false").lower() == "true"
 
 # --- Standalone DB Session for Background Task ---
 # The background task runs in a separate context and needs its own DB connection.
@@ -60,13 +61,22 @@ def process_document_task(
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
             local_path = storage.download_to_temp(s3_key, filename_hint=hint)
 
-        populate_db.run_ingestion_pipeline(
-            db_url=db_url,
-            doc_id=doc_id,
-            file_path=local_path,
-            tag=tag,
-            user_id=user_id
-        )
+        if API_ONLY_RAG:
+            # API-only mode: skip local heavy ingestion/vector pipeline.
+            # Keep status flow compatible for UI polling.
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.COMPLETED, "chroma_ids": []}
+            )
+            db.commit()
+        else:
+            populate_db = importlib.import_module("app.utils.populate_database")
+            populate_db.run_ingestion_pipeline(
+                db_url=db_url,
+                doc_id=doc_id,
+                file_path=local_path,
+                tag=tag,
+                user_id=user_id
+            )
     except Exception as e:
         print(f"CELERY WORKER ERROR (doc_id={doc_id}): {e}")
         try:
@@ -114,13 +124,21 @@ def process_quiz_document(
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
             local_path = storage.download_to_temp(s3_key, filename_hint=hint)
 
-        quiz.run_quiz_ingestion_pipeline(
-            db_url=db_url,
-            doc_id=doc_id,
-            file_path=local_path,
-            tag=tag,
-            user_id=user_id
-        )
+        if API_ONLY_RAG:
+            # API-only mode: skip local heavy quiz ingestion/vector pipeline.
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.COMPLETED, "chroma_ids": []}
+            )
+            db.commit()
+        else:
+            quiz = importlib.import_module("app.utils.quiz")
+            quiz.run_quiz_ingestion_pipeline(
+                db_url=db_url,
+                doc_id=doc_id,
+                file_path=local_path,
+                tag=tag,
+                user_id=user_id
+            )
     except Exception as e:
         print(f"CELERY WORKER ERROR (quiz doc_id={doc_id}): {e}")
         try:

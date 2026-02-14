@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     )
 settings = Settings()
 RAG_QUEUE_NAME = os.getenv("RAG_QUEUE", "celery")
+API_ONLY_RAG = os.getenv("API_ONLY_RAG", "false").lower() == "true"
 
 app = FastAPI()
 # Keep create_all only for non-production local workflows, unless explicitly
@@ -144,6 +145,51 @@ oauth.register(
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
+
+
+def _format_chat_history_light(messages: list[models.Message]) -> str:
+    if not messages:
+        return ""
+    lines = []
+    for m in messages:
+        role = "User" if m.role == "user" else "Assistant"
+        lines.append(f"{role}: {m.content}")
+    return "\n".join(lines)
+
+
+def _query_gemini_api_only(question: str, chat_history: str = "") -> str:
+    try:
+        import google.generativeai as genai
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Gemini SDK unavailable: {e}")
+
+    if not settings.GOOGLE_API_KEY:
+        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
+
+    genai.configure(api_key=settings.GOOGLE_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    prompt = (
+        "You are AutomateU study assistant.\n"
+        "Answer clearly and concisely.\n"
+        "If user asks for unsafe/vulgar content, refuse politely.\n\n"
+        f"Chat history:\n{chat_history}\n\n"
+        f"User question:\n{question}\n"
+    )
+    try:
+        response = model.generate_content(prompt)
+        text = getattr(response, "text", None)
+        if text and text.strip():
+            return text.strip()
+        # Fallback extraction if SDK returns candidates/parts only.
+        candidates = getattr(response, "candidates", []) or []
+        if candidates and candidates[0].content and candidates[0].content.parts:
+            parts = [getattr(p, "text", "") for p in candidates[0].content.parts]
+            joined = "".join(parts).strip()
+            if joined:
+                return joined
+        return "I could not generate a response right now."
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Gemini request failed: {e}")
 
 async def get_current_active_user(
     request: Request,
@@ -512,27 +558,33 @@ async def ask_question(
     db.add(user_message)
     db.commit()
 
-    # Tree-based lexical retrieval (topic/page hierarchy aware)
-    try:
-        context_docs = populate_db.retrieve_tree_based_context(
-            query=ask_request.question,
-            tag=ask_request.tag,
-            top_k=3
-        )
-        context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
-        sources = populate_db.format_sources(context_docs)
-    except Exception as e:
-        print(f"Context retrieval failed for tag={ask_request.tag}: {e}")
-        context_text = ""
+    if API_ONLY_RAG:
+        # API-only mode: bypass local retrieval/vector pipelines entirely.
         sources = []
+        formatted_history = _format_chat_history_light(chat_history_messages)
+        answer = _query_gemini_api_only(ask_request.question, formatted_history)
+    else:
+        # Tree-based lexical retrieval (topic/page hierarchy aware)
+        try:
+            context_docs = populate_db.retrieve_tree_based_context(
+                query=ask_request.question,
+                tag=ask_request.tag,
+                top_k=3
+            )
+            context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
+            sources = populate_db.format_sources(context_docs)
+        except Exception as e:
+            print(f"Context retrieval failed for tag={ask_request.tag}: {e}")
+            context_text = ""
+            sources = []
 
-    # Get response from Gemini-backed RAG answerer
-    formatted_history = populate_db.format_chat_history(chat_history_messages)
-    try:
-        answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
-    except Exception as e:
-        print(f"LLM query failed: {e}")
-        raise HTTPException(status_code=503, detail="Assistant is temporarily unavailable. Please try again.")
+        # Get response from Gemini-backed RAG answerer
+        formatted_history = populate_db.format_chat_history(chat_history_messages)
+        try:
+            answer = populate_db.query_llm(ask_request.question, context_text, formatted_history)
+        except Exception as e:
+            print(f"LLM query failed: {e}")
+            raise HTTPException(status_code=503, detail="Assistant is temporarily unavailable. Please try again.")
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)

@@ -32,6 +32,13 @@
 - Run a dedicated worker with `--queues rag` for heavy document ingestion tasks.
 - Keep your default worker for lighter tasks on default `celery` queue.
 
+## API-only fallback mode (no local heavy pipelines)
+- Set `API_ONLY_RAG=true` on both API and Worker services.
+- Effect:
+  - Worker skips local ingestion/chroma pipelines and marks uploaded docs `completed`.
+  - `/ask` answers via direct Gemini API call (no local retrieval/vector lookup).
+  - Original pipeline code remains in codebase and can be re-enabled by setting `API_ONLY_RAG=false`.
+
 ## Frontend
 - Build command: `npm install && npm run build`
 - Publish directory: `build`
