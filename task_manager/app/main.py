@@ -59,6 +59,7 @@ quiz = _LazyModule("app.utils.quiz")
 
 class Settings(BaseSettings):
     SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
+    GOOGLE_API_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
     RESEND_FROM_EMAIL: EmailStr = "no-reply@mail.automateu.space"
     FRONTEND_URL: str = "http://localhost:3000"
