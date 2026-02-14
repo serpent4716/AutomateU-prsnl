@@ -129,6 +129,13 @@ function StudyAssistantChatPageContent({ user }) {
       return acc;
     }, {});
   }, [documents]);
+  const availableTags = useMemo(() => {
+    const tags = new Set(["central"]);
+    documents.forEach((doc) => {
+      if (doc.tag && doc.tag.trim()) tags.add(doc.tag.trim());
+    });
+    return Array.from(tags);
+  }, [documents]);
   // This useEffect now just CALLS the functions on initial load.
   useEffect(() => {
     if (user) {
@@ -150,8 +157,8 @@ function StudyAssistantChatPageContent({ user }) {
   };
 
   const handleFileUpload = async () => {
-    if (!file || !tag.trim()) {
-      setError("Please select a file and provide a subject tag to upload.");
+    if (!file) {
+      setError("Please select a file to upload.");
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -160,7 +167,7 @@ function StudyAssistantChatPageContent({ user }) {
     
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("tag", tag);
+    formData.append("tag", tag.trim() || "central");
 
     try {
       const response = await api.post("/upload_doc", formData, { headers: { "Content-Type": "multipart/form-data" } });
@@ -246,8 +253,8 @@ const handleViewDocument = (docId, docName, tag) => {
   // This function can now correctly call `fetchConversations`
   const handleAskQuestion = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !tag.trim()) {
-      setError("Please enter a question and a subject tag.");
+    if (!newMessage.trim()) {
+      setError("Please enter a question.");
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -265,7 +272,7 @@ const handleViewDocument = (docId, docName, tag) => {
     try {
       const payload = {
         question: newMessage,
-        tag: tag,
+        tag: tag.trim() || "central",
         conversation_id: selectedConversation?.id || null,
       };
       const response = await api.post("/ask", payload);
@@ -508,15 +515,20 @@ const handleViewDocument = (docId, docName, tag) => {
                   {/* Resized Tag Input */}
                   <div className="flex items-center gap-2 border rounded-full py-2 px-3 bg-white w-64">
                     <Tag className="h-5 w-5 text-gray-400" />
-                    {/* <input
-                      placeholder="Subject Tag"
+                    <input
+                      list="subject-tags"
+                      placeholder="General (optional)"
                       value={tag}
                       onChange={(e) => setTag(e.target.value)}
                       className="w-full text-sm outline-none bg-transparent"
-                    /> */}
-                    <select value={tag} onChange={(e) => setTag(e.target.value)} className="w-full text-m outline-none bg-transparent">
-                        <option value="central">General</option><option value="CNS">CNS</option><option value="AISC">AISC</option><option value="SoftwareEngineering">SE</option><option value="BoardGames">Board Games</option>
-                    </select>
+                    />
+                    <datalist id="subject-tags">
+                      {availableTags.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </datalist>
                   </div>
                   
                   {/* Styled Upload Button */}
@@ -550,7 +562,7 @@ const handleViewDocument = (docId, docName, tag) => {
                     rows={1}
                     className="w-full py-3 pl-12 pr-12 text-sm border rounded-full resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
-                  <button type="submit" disabled={isLoading || !newMessage.trim() || !tag.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={isLoading || !newMessage.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed">
                     <Send className="h-5 w-5" />
                   </button>
                 </form>

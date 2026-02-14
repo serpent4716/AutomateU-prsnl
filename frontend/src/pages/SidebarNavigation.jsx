@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import {
   Home,
@@ -21,6 +21,17 @@ function cn(...classes) {
 export function SidebarNavigation() {
   const navigate = useNavigate()
   const location = useLocation()
+  const avatarLetter = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user")
+      if (!raw) return "U"
+      const parsed = JSON.parse(raw)
+      const name = (parsed?.name || "").trim()
+      return name ? name.charAt(0).toUpperCase() : "U"
+    } catch {
+      return "U"
+    }
+  }, [])
 
   const handleMenuClick = async (item) => {
     if (item.label === "Logout") {
@@ -105,7 +116,7 @@ export function SidebarNavigation() {
             "dark:bg-gray-800 dark:text-white"
           )}
         >
-          JD
+          {avatarLetter}
         </div>
       </div>
 
