@@ -60,6 +60,8 @@ quiz = _LazyModule("app.utils.quiz")
 class Settings(BaseSettings):
     SECRET_KEY: str  # For signing JWTs, CSRF, and itsdangerous tokens
     GOOGLE_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_MODEL_FALLBACK: str = "gemini-2.0-flash-lite"
     RESEND_API_KEY: Optional[str] = None
     RESEND_FROM_EMAIL: EmailStr = "no-reply@mail.automateu.space"
     FRONTEND_URL: str = "http://localhost:3000"
@@ -168,7 +170,8 @@ def _query_gemini_api_only(question: str, chat_history: str = "") -> str:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
 
     genai.configure(api_key=settings.GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    primary_model = settings.GEMINI_MODEL or "gemini-2.0-flash"
+    fallback_model = settings.GEMINI_MODEL_FALLBACK or "gemini-2.0-flash-lite"
     prompt = (
         "You are AutomateU study assistant.\n"
         "Answer clearly and concisely.\n"
@@ -177,7 +180,12 @@ def _query_gemini_api_only(question: str, chat_history: str = "") -> str:
         f"User question:\n{question}\n"
     )
     try:
-        response = model.generate_content(prompt)
+        try:
+            model = genai.GenerativeModel(primary_model)
+            response = model.generate_content(prompt)
+        except Exception:
+            model = genai.GenerativeModel(fallback_model)
+            response = model.generate_content(prompt)
         text = getattr(response, "text", None)
         if text and text.strip():
             return text.strip()
