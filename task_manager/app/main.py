@@ -598,17 +598,39 @@ async def ask_question(
     # API-only answer generation, but keep retrieval metadata for citations.
     sources = []
     context_text = ""
-    try:
-        context_docs = populate_db.retrieve_tree_based_context(
-            query=ask_request.question,
-            tag=ask_request.tag,
-            top_k=3,
-            user_id=str(current_user.id),
-        )
+    context_docs = []
+    tag_candidates = []
+    requested_tag = (ask_request.tag or "").strip() or "central"
+    tag_candidates.append(requested_tag)
+    if requested_tag != "central":
+        tag_candidates.append("central")
+
+    seen_doc_keys = set()
+    for candidate_tag in tag_candidates:
+        try:
+            retrieved = populate_db.retrieve_tree_based_context(
+                query=ask_request.question,
+                tag=candidate_tag,
+                top_k=3,
+                user_id=str(current_user.id),
+            )
+            for doc in retrieved:
+                key = (
+                    str(doc.metadata.get("doc_id", "")),
+                    str(doc.metadata.get("source", "")),
+                    str(doc.metadata.get("page", "")),
+                )
+                if key in seen_doc_keys:
+                    continue
+                seen_doc_keys.add(key)
+                context_docs.append(doc)
+        except Exception as e:
+            print(f"Context retrieval unavailable for tag={candidate_tag}: {e}")
+
+    context_docs = context_docs[:3]
+    if context_docs:
         context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
         sources = populate_db.format_sources(context_docs)
-    except Exception as e:
-        print(f"Context retrieval unavailable for tag={ask_request.tag}: {e}")
     formatted_history = _format_chat_history_light(chat_history_messages)
     answer = _query_gemini_api_only(ask_request.question, formatted_history, context_text)
     # Save the assistant's response
