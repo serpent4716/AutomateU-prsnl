@@ -343,18 +343,18 @@ export default function AttendancePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex">
             <SidebarNavigation />
 
-            <main className="flex-1 p-6 md:pl-50">
+            <main className="flex-1 p-4 md:p-6">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">
+                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
                                 Attendance Tracker
                             </h1>
-                            <p className="text-gray-600 mt-1">Track your class attendance and maintain academic performance</p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-1">Track your class attendance and maintain academic performance</p>
                         </div>
                         <button onClick={() => setShowAddSubject(true)} className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors">
                             <Plus className="h-4 w-4" />
@@ -364,11 +364,11 @@ export default function AttendancePage() {
 
                     {/* Tabs */}
                     <div className="space-y-6">
-                        <div className="grid w-full grid-cols-4 border-b">
-                            <button onClick={() => handleTabChange('overview')} className={cn("p-3 text-sm font-medium", activeTab === 'overview' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-black')}>Overview</button>
-                            <button onClick={() => handleTabChange('mark')} className={cn("p-3 text-sm font-medium", activeTab === 'mark' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-black')}>Mark Attendance</button>
-                            <button onClick={() => handleTabChange('calendar')} className={cn("p-3 text-sm font-medium", activeTab === 'calendar' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-black')}>Calendar View</button>
-                            <button onClick={() => handleTabChange('analytics')} className={cn("p-3 text-sm font-medium", activeTab === 'analytics' ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-black')}>Analytics</button>
+                        <div className="grid w-full grid-cols-2 md:grid-cols-4 border-b dark:border-gray-800">
+                            <button onClick={() => handleTabChange('overview')} className={cn("p-2.5 md:p-3 text-xs md:text-sm font-medium", activeTab === 'overview' ? 'border-b-2 border-black text-black dark:border-cyan-400 dark:text-cyan-300' : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-gray-200')}>Overview</button>
+                            <button onClick={() => handleTabChange('mark')} className={cn("p-2.5 md:p-3 text-xs md:text-sm font-medium", activeTab === 'mark' ? 'border-b-2 border-black text-black dark:border-cyan-400 dark:text-cyan-300' : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-gray-200')}>Mark Attendance</button>
+                            <button onClick={() => handleTabChange('calendar')} className={cn("p-2.5 md:p-3 text-xs md:text-sm font-medium", activeTab === 'calendar' ? 'border-b-2 border-black text-black dark:border-cyan-400 dark:text-cyan-300' : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-gray-200')}>Calendar View</button>
+                            <button onClick={() => handleTabChange('analytics')} className={cn("p-2.5 md:p-3 text-xs md:text-sm font-medium", activeTab === 'analytics' ? 'border-b-2 border-black text-black dark:border-cyan-400 dark:text-cyan-300' : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-gray-200')}>Analytics</button>
                         </div>
                         
                         {/* Overview Content */}

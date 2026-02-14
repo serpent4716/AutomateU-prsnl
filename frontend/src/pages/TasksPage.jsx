@@ -181,9 +181,9 @@ function TasksPageContent({ user }) {
     const getInitials = (name) => name ? name.split(" ").map((n) => n[0]).join("").toUpperCase() : '?';
 
     return (
-        <div className="min-h-screen bg-white flex">
+        <div className="min-h-screen bg-white dark:bg-slate-950 flex">
             <SidebarNavigation />
-            <main className="flex-1 p-8">
+            <main className="flex-1 p-4 md:p-8">
                 <div className="max-w-7xl mx-auto">
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
@@ -195,11 +195,11 @@ function TasksPageContent({ user }) {
                     <div className="mb-8">
                          <div className="flex items-center justify-between mb-6">
                              <div>
-                                <h1 className="text-2xl font-semibold text-gray-900">Task Manager</h1>
-                                <p className="text-gray-600">Organize and track your team's work</p>
+                                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Task Manager</h1>
+                                <p className="text-gray-600 dark:text-gray-400">Organize and track your team's work</p>
                             </div>
                             <div className="flex gap-3">
-                                <button onClick={() => setShowStats(!showStats)} className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2">
+                                <button onClick={() => setShowStats(!showStats)} className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
                                     <BarChart3 className="h-4 w-4 mr-2" /> Analytics
                                 </button>
                                 <button onClick={() => setShowCreateDialog(true)} className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-black text-white h-10 px-4 py-2">
@@ -210,9 +210,9 @@ function TasksPageContent({ user }) {
                         <div className="flex gap-4 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                                <input placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex h-10 w-full rounded-md border bg-gray-50 pl-10 px-3 py-2 text-sm"/>
+                                <input placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="flex h-10 w-full rounded-md border bg-gray-50 pl-10 px-3 py-2 text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"/>
                             </div>
-                            <button className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2">
+                            <button className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
                                 <Filter className="h-4 w-4 mr-2" /> Filter
                             </button>
                         </div>
@@ -221,8 +221,8 @@ function TasksPageContent({ user }) {
                     {showStats && (
                          <div className="mb-8 space-y-6">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-gray-900">Analytics & Team Management</h2>
-                                <button onClick={() => setShowTeamManager(!showTeamManager)} className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Analytics & Team Management</h2>
+                                <button onClick={() => setShowTeamManager(!showTeamManager)} className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium border h-10 px-4 py-2 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-800">
                                     <Users className="h-4 w-4 mr-2" /> Manage Team
                                 </button>
                             </div>
@@ -231,7 +231,7 @@ function TasksPageContent({ user }) {
                                     {statsList.map((stat) => {
                                         const Icon = stat.icon;
                                         return (
-                                            <div key={stat.title} className="rounded-lg border bg-card text-card-foreground shadow-sm p-4">
+                                            <div key={stat.title} className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 dark:bg-gray-900 dark:border-gray-800">
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <p className="text-sm font-medium text-gray-600">{stat.title}</p>
@@ -243,7 +243,7 @@ function TasksPageContent({ user }) {
                                         )
                                     })}
                                 </div>
-                                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+                                <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 dark:bg-gray-900 dark:border-gray-800">
                                      <h3 className="text-lg font-semibold leading-none tracking-tight mb-4">Project Progress</h3>
                                      <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
@@ -258,18 +258,18 @@ function TasksPageContent({ user }) {
                             </div>
                             {showTeamManager && (
                                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-                                    <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2 mb-4">
+                                    <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2 mb-4 dark:text-gray-100">
                                         <Users className="h-5 w-5" /> Team Management
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <form onSubmit={handleCreateTeam} className="space-y-2 p-4 bg-gray-50 rounded-xl">
+                                        <form onSubmit={handleCreateTeam} className="space-y-2 p-4 bg-gray-50 rounded-xl dark:bg-gray-900">
                                             <h4 className="font-medium">Create a New Team</h4>
-                                            <input placeholder="New team name..." value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} className="h-10 w-full rounded-md border px-3 py-2 text-sm"/>
+                                            <input placeholder="New team name..." value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} className="h-10 w-full rounded-md border px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100"/>
                                             <button type="submit" className="w-full h-10 px-4 py-2 bg-black text-white rounded-md">Create Team</button>
                                         </form>
-                                        <form onSubmit={handleJoinTeam} className="space-y-2 p-4 bg-gray-50 rounded-xl">
+                                        <form onSubmit={handleJoinTeam} className="space-y-2 p-4 bg-gray-50 rounded-xl dark:bg-gray-900">
                                             <h4 className="font-medium">Join an Existing Team</h4>
-                                            <input type="number" placeholder="Enter team ID to join..." value={joinTeamId} onChange={(e) => setJoinTeamId(e.target.value)} className="h-10 w-full rounded-md border px-3 py-2 text-sm"/>
+                                            <input type="number" placeholder="Enter team ID to join..." value={joinTeamId} onChange={(e) => setJoinTeamId(e.target.value)} className="h-10 w-full rounded-md border px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100"/>
                                             <button type="submit" className="w-full h-10 px-4 py-2 bg-blue-600 text-white rounded-md">Join Team</button>
                                         </form>
                                     </div>
@@ -277,7 +277,7 @@ function TasksPageContent({ user }) {
                                         <h4 className="font-medium mb-2">Your Teams</h4>
                                         <div className="space-y-2">
                                             {teams.map(team => (
-                                                <div key={team.id} className="flex items-center justify-between p-2 border rounded-lg">
+                                                <div key={team.id} className="flex items-center justify-between p-2 border rounded-lg dark:border-gray-700 dark:text-gray-100">
                                                     <span>{team.name}</span>
                                                     <span className="text-sm text-gray-500">ID: {team.id}</span>
                                                 </div>
@@ -295,27 +295,27 @@ function TasksPageContent({ user }) {
                         
                             <div 
                                 key={column.status}
-                                className={`${column.color} rounded-lg p-4 min-h-[500px]`}
+                                className={`${column.color} rounded-lg p-3 md:p-4 min-h-[420px] md:min-h-[500px] dark:bg-gray-900/70`}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={() => handleDrop(column.status)}
                             >
                                 <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-semibold text-gray-800">{column.title}</h3>
-                                    <span className="bg-white px-2 py-1 rounded-full text-sm font-medium text-gray-600">{filteredTasks.filter(t => t.status === column.status).length}</span>
+                                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">{column.title}</h3>
+                                    <span className="bg-white px-2 py-1 rounded-full text-sm font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-200">{filteredTasks.filter(t => t.status === column.status).length}</span>
                                 </div>
                                 {filteredTasks.filter(t => t.status === column.status).map((task) => (
                                     <div 
                                         key={task.id}
                                         draggable
                                         onDragStart={() => setDraggedTask(task)}
-                                        className="rounded-lg bg-white shadow p-4 cursor-pointer mb-4"
+                                        className="rounded-lg bg-white shadow p-4 cursor-pointer mb-4 dark:bg-gray-950 dark:border dark:border-gray-800"
                                         onClick={() => setEditingTask(task)}
                                     >
                                        <div className="flex items-start justify-between mb-2">
-                                            <h4 className="font-semibold text-gray-900">{task.title}</h4>
+                                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">{task.title}</h4>
                                             <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }} className="text-gray-500 hover:text-red-600"><Trash className="h-4 w-4"/></button>
                                         </div>
-                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{task.desc}</p>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{task.desc}</p>
                                         <div className="flex flex-wrap gap-1 mb-3">
                                             <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>
                                             {task.tags.map(tag => <span key={tag} className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium border text-gray-600">{tag}</span>)}

@@ -17,6 +17,7 @@ import {
   Repeat,
   Check,
   Award,
+  Menu,
 } from "lucide-react";
 import api from "../../services/api"; // Ensure this path is correct
 
@@ -72,6 +73,7 @@ export default function StudyAssistantQuizPage() {
   const [expandedTags, setExpandedTags] = useState({});
   const [error, setError] = useState(null);
   const pollingIntervals = useRef(new Map()).current;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const allQuestionTypes = [
     "Multiple choice",
@@ -166,6 +168,7 @@ export default function StudyAssistantQuizPage() {
     setCurrentQuestionIndex(0);
     setQuizResults(null);
     setError(null);
+    setIsSidebarOpen(false);
   };
 
   // --- Sidebar Handlers ---
@@ -210,6 +213,7 @@ export default function StudyAssistantQuizPage() {
     handleStartNewQuiz(); // Reset first
     setSelectedDocForQuiz({ id: doc.id, tag: doc.tag, filename: doc.filename });
     setStep(2); // Move to customize step
+    setIsSidebarOpen(false);
   };
 
   const handleFetchResults = async (sessionId) => {
@@ -228,12 +232,14 @@ export default function StudyAssistantQuizPage() {
     // Use .toLowerCase() for a robust, case-insensitive check
     if (quizItem.status.toLowerCase() === "completed") {
       await handleFetchResults(quizItem.id);
+      setIsSidebarOpen(false);
     } else {
       try {
         const response = await api.get(`/quiz/session/${quizItem.id}`);
         handleStartNewQuiz(); // Reset first
         setCurrentQuizSession(response.data); // This has the questions
         setStep(3); // Go to the quiz
+        setIsSidebarOpen(false);
       } catch (err) {
         console.error("Failed to fetch quiz session:", err);
         setError(err.response?.data?.detail || "Could not resume this quiz.");
@@ -519,7 +525,13 @@ export default function StudyAssistantQuizPage() {
       </div>
 
       {/* --- Sidebar (Adapted from Chat) --- */}
-      <div className="w-80 border-r bg-white flex flex-col shrink-0 h-screen dark:bg-white/5 dark:border-white/10 dark:backdrop-blur-xl relative z-10">
+      <div
+        className={cn(
+          "w-72 md:w-80 border-r bg-white flex flex-col shrink-0 h-screen dark:bg-white/5 dark:border-white/10 dark:backdrop-blur-xl z-30",
+          "fixed md:relative inset-y-0 left-0 transform transition-transform duration-200",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
         <div className="p-4 border-b flex justify-between items-center dark:border-white/10">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Quiz Generator</h2>
           <button
@@ -635,9 +647,19 @@ export default function StudyAssistantQuizPage() {
           </div>
         </div>
       </div>
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/40 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
 
       {/* --- Main Content Area --- */}
-      <main className="flex-1 p-8 overflow-y-auto h-screen bg-gray-50 dark:bg-transparent relative z-10">
+      <main className="flex-1 p-3 md:p-8 overflow-y-auto h-screen bg-gray-50 dark:bg-transparent relative z-10">
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="md:hidden inline-flex items-center gap-2 text-sm px-3 py-1.5 mb-3 rounded-md border bg-white text-gray-700 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-200"
+        >
+          <Menu className="h-4 w-4" />
+          Menu
+        </button>
         {error && (
           <div className="max-w-4xl mx-auto mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-center dark:bg-red-900/20 dark:border-red-500/40 dark:text-red-200">
             {error}
@@ -661,7 +683,7 @@ export default function StudyAssistantQuizPage() {
                     </p>
                 </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-medium dark:bg-gradient-to-r dark:from-purple-500 dark:to-pink-500 dark:shadow-lg dark:shadow-purple-500/40">
                         1
@@ -801,7 +823,7 @@ export default function StudyAssistantQuizPage() {
                     </h1>
                 </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium dark:shadow-lg dark:shadow-green-500/40">
                         ✓
@@ -1021,7 +1043,7 @@ export default function StudyAssistantQuizPage() {
                   </h1>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium dark:shadow-lg dark:shadow-green-500/40">
                     ✓

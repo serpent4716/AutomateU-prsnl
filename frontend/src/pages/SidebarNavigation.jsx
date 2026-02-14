@@ -94,7 +94,7 @@ export function SidebarNavigation() {
   return (
     <div
       className={cn(
-        "w-16 border-r flex flex-col items-center py-4 space-y-2 transition-all duration-200",
+        "w-14 md:w-16 border-r flex flex-col items-center py-3 md:py-4 space-y-2 transition-all duration-200",
 
         // Light mode
         "bg-gray-100 border-gray-200",
@@ -107,7 +107,7 @@ export function SidebarNavigation() {
       <div className="mb-4">
         <div
           className={cn(
-            "h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium transition-all",
+            "h-8 w-8 md:h-10 md:w-10 rounded-full flex items-center justify-center text-xs md:text-sm font-medium transition-all",
 
             // Light
             "bg-blue-100 text-blue-600",
@@ -131,7 +131,7 @@ export function SidebarNavigation() {
             onClick={() => handleMenuClick(item)}
             title={item.label}
             className={cn(
-              "w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200",
+              "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-xl transition-all duration-200",
 
               // Light theme inactive
               !isActive && "text-gray-600 hover:bg-gray-200 hover:text-gray-900",
@@ -146,7 +146,7 @@ export function SidebarNavigation() {
               isActive && `dark:${item.darkGradient} dark:text-white shadow-md`
             )}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
         )
       })}
@@ -159,7 +159,7 @@ export function SidebarNavigation() {
         onClick={() => navigate("/settings")}
         title="Settings"
         className={cn(
-          "w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200",
+          "w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-xl transition-all duration-200",
 
           // Light
           "text-gray-600 hover:bg-gray-200 hover:text-gray-900",
@@ -168,7 +168,7 @@ export function SidebarNavigation() {
           "dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
         )}
       >
-        <Settings className="h-5 w-5" />
+        <Settings className="h-4 w-4 md:h-5 md:w-5" />
       </button>
     </div>
   )

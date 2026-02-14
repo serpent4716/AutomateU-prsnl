@@ -462,18 +462,18 @@ const handleThemeChange = (e) => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex">
             <SidebarNavigation />
 
             <main className="container mx-auto px-4 py-6 max-w-4xl flex-1">
                 <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                    <p className="text-gray-600 mt-1">Manage your account and preferences</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your account and preferences</p>
                 </div>
 
                 <div className="grid gap-6">
                     {/* Profile Settings */}
-                    <div className="rounded-lg border bg-white text-card-foreground shadow-sm">
+                    <div className="rounded-lg border bg-white text-card-foreground shadow-sm dark:bg-gray-900 dark:border-gray-800">
                         <div className="flex flex-col space-y-1.5 p-6">
                             <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
                                 <div className="relative flex h-6 w-6 shrink-0 overflow-hidden rounded-full">
@@ -485,25 +485,25 @@ const handleThemeChange = (e) => {
                                 Profile Information
                             </h3>
                         </div>
-                        <div className="p-6 pt-0 space-y-4">
+                        <div className="p-6 pt-0 space-y-4 dark:text-gray-200">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex h-20 w-20 shrink-0 overflow-hidden rounded-full">
                                      <span className="flex h-full w-full items-center justify-center rounded-full bg-muted text-lg">
                                         {userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'U'}
                                      </span>
                                 </div>
-                                <button onClick={handleAvatarUpload} className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 border rounded-md text-sm font-medium hover:bg-accent">
+                                <button onClick={handleAvatarUpload} className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 border rounded-md text-sm font-medium hover:bg-accent dark:border-gray-700 dark:hover:bg-gray-800">
                                     <Upload className="h-4 w-4" /> Change Avatar
                                 </button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="name" className="text-sm font-medium leading-none">Full Name</label>
-                                    <input id="name" value={userProfile.name} onChange={(e) => setUserProfile(prev => ({ ...prev, name: e.target.value }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                                    <input id="name" value={userProfile.name} onChange={(e) => setUserProfile(prev => ({ ...prev, name: e.target.value }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" />
                                 </div>
                                 <div>
                                     <label htmlFor="email" className="text-sm font-medium leading-none">Email</label>
-                                    <input id="email" type="email" value={userProfile.email} onChange={(e) => setUserProfile(prev => ({ ...prev, email: e.target.value }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                                    <input id="email" type="email" value={userProfile.email} onChange={(e) => setUserProfile(prev => ({ ...prev, email: e.target.value }))} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100" />
                                 </div>
                             </div>
 
@@ -512,7 +512,7 @@ const handleThemeChange = (e) => {
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="timezone" className="text-sm font-medium leading-none">Timezone</label>
-                                    <select value={userProfile.timezone} onChange={e => setUserProfile(prev => ({...prev, timezone: e.target.value}))} className="mt-1 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
+                                    <select value={userProfile.timezone} onChange={e => setUserProfile(prev => ({...prev, timezone: e.target.value}))} className="mt-1 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100">
                                         <option value="UTC-8">Pacific Time (UTC-8)</option>
                                         <option value="UTC-5">Eastern Time (UTC-5)</option>
                                         <option value="UTC">GMT (UTC+0)</option>
@@ -521,7 +521,7 @@ const handleThemeChange = (e) => {
                                 </div>
                                 <div>
                                     <label htmlFor="language" className="text-sm font-medium leading-none">Language</label>
-                                    <select value={userProfile.language} onChange={e => setUserProfile(prev => ({...prev, language: e.target.value}))} className="mt-1 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
+                                    <select value={userProfile.language} onChange={e => setUserProfile(prev => ({...prev, language: e.target.value}))} className="mt-1 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100">
                                         <option value="en">English</option>
                                         <option value="es">Spanish</option>
                                         <option value="fr">French</option>
@@ -614,7 +614,7 @@ const handleThemeChange = (e) => {
                             </div>
                        )
                     }].map(({ title, Icon, content }) => (
-                         <div key={title} className="rounded-lg border bg-white text-card-foreground shadow-sm">
+                         <div key={title} className="rounded-lg border bg-white text-card-foreground shadow-sm dark:bg-gray-900 dark:border-gray-800 dark:text-gray-200">
                             <div className="p-6">
                                 <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2"><Icon className="h-5 w-5" /> {title}</h3>
                             </div>

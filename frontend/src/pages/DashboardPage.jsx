@@ -135,7 +135,7 @@ export default function DashboardPage() {
       iconColor: "text-indigo-600",
       // Dark: Attendance from dark dashboard
       darkClasses:
-        "dark:bg-purple-950 dark:border-pruple-700",
+        "dark:bg-purple-950 dark:border-purple-700",
       glow: "rgba(167,139,250,0.45)",
     },
     {
@@ -173,7 +173,7 @@ export default function DashboardPage() {
 
       <SidebarNavigation />
 
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-4 md:p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="mb-6">
@@ -199,14 +199,14 @@ export default function DashboardPage() {
 
           {/* Search - keeps light style, adds dark variant similar to dark dashboard */}
           <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-400 h-5 w-5" />
+            <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-400 h-4 w-4 md:h-5 md:w-5" />
             <input
               type="text"
               placeholder="Search tasks, documents, or ask me anything..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "pl-12 pr-4 py-4 text-lg border border-gray-200 rounded-2xl bg-gray-50 focus:bg-white focus:border-gray-300 transition-colors w-full outline-none",
+                "pl-10 md:pl-12 pr-4 py-3 md:py-4 text-base md:text-lg border border-gray-200 rounded-2xl bg-gray-50 focus:bg-white focus:border-gray-300 transition-colors w-full outline-none",
                 "dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:placeholder-gray-500 dark:shadow-md dark:hover:shadow-orange-500/10 dark:hover:border-white/20"
               )}
             />
@@ -236,10 +236,10 @@ export default function DashboardPage() {
                   )}
                   onClick={() => navigate(action.path)}
                 >
-                  <div className="p-6">
+                  <div className="p-4 md:p-6">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
-                        <Icon className={cn("h-6 w-6", action.iconColor, "dark:text-white/90")} />
+                      <div className="p-2.5 md:p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
+                        <Icon className={cn("h-5 w-5 md:h-6 md:w-6", action.iconColor, "dark:text-white/90")} />
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
@@ -272,10 +272,10 @@ export default function DashboardPage() {
                     )}
                     onClick={() => navigate(tool.path)}
                   >
-                    <div className="p-6">
+                    <div className="p-4 md:p-6">
                       <div className="flex flex-col items-start gap-3">
-                        <div className="p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
-                          <Icon className={cn("h-6 w-6", tool.iconColor, "dark:text-white/90")} />
+                        <div className="p-2.5 md:p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
+                          <Icon className={cn("h-5 w-5 md:h-6 md:w-6", tool.iconColor, "dark:text-white/90")} />
                         </div>
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -310,10 +310,10 @@ export default function DashboardPage() {
                     )}
                     onClick={() => navigate(tool.path)}
                   >
-                    <div className="p-6">
+                    <div className="p-4 md:p-6">
                       <div className="flex flex-col items-start gap-3">
-                        <div className="p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
-                          <Icon className={cn("h-6 w-6", tool.iconColor, "dark:text-white/90")} />
+                        <div className="p-2.5 md:p-3 bg-white dark:bg-white/5 rounded-xl shadow-sm">
+                          <Icon className={cn("h-5 w-5 md:h-6 md:w-6", tool.iconColor, "dark:text-white/90")} />
                         </div>
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">

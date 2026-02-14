@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo} from "react";
 import { SidebarNavigation } from "../SidebarNavigation";
-import { Send, BookOpen, Trash2, FileText, Paperclip, Tag, AlertTriangle, CheckCircle, Loader, Copy, Bot, X , Eye, ChevronDown} from "lucide-react";
+import { Send, BookOpen, Trash2, FileText, Paperclip, Tag, AlertTriangle, CheckCircle, Loader, Copy, Bot, X , Eye, ChevronDown, Menu} from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import api from "../../services/api";
 
@@ -71,6 +71,7 @@ function StudyAssistantChatPageContent({ user }) {
   const [viewingTag, setViewingTag] = useState("central");
   const [viewingDocName, setViewingDocName] = useState("");
   const [expandedTags, setExpandedTags] = useState({});
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // --- THE FIX: Moved function definitions out of useEffect ---
   // We wrap them in useCallback to prevent them from being recreated on every render.
   const fetchConversations = useCallback(async () => {
@@ -205,6 +206,7 @@ const handleViewDocument = (docId, docName, tag) => {
         setViewingDocId(docId);
         setViewingDocName(docName);
         setViewingTag(tag);
+        setIsSidebarOpen(false);
     };
 
     const handleCloseModal = () => {
@@ -242,6 +244,7 @@ const handleViewDocument = (docId, docName, tag) => {
     try {
       const response = await api.get(`/conversations/${convId}`);
       setSelectedConversation(response.data);
+      setIsSidebarOpen(false);
     } catch (err) {
       console.error("Failed to load conversation:", err);
       setError("Could not load conversation details.");
@@ -380,15 +383,22 @@ const handleViewDocument = (docId, docName, tag) => {
   `;
   
   return (
-    <div className="min-h-screen flex bg-gray-100 font-sans">
+    <div className="min-h-screen flex bg-gray-100 font-sans dark:bg-slate-950">
       <SidebarNavigation />
       <main className="flex-1 flex flex-col h-screen">
         <div className="flex-1 flex overflow-hidden">
           {/* Sidebar */}
-          <div className="w-80 border-r bg-white flex flex-col shrink-0">
+          <div
+            className={cn(
+              "w-72 md:w-80 border-r bg-white flex flex-col shrink-0 z-30",
+              "fixed md:static inset-y-0 left-0 transform transition-transform duration-200",
+              "dark:bg-gray-900 dark:border-gray-800",
+              isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+            )}
+          >
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-800">History</h2>
-              <button onClick={() => setSelectedConversation(null)} className="bg-gray-100 text-gray-700 text-xs font-semibold rounded-md px-3 py-1.5 hover:bg-gray-200">New Chat</button>
+              <button onClick={() => setSelectedConversation(null)} className="bg-gray-100 text-gray-700 text-xs font-semibold rounded-md px-3 py-1.5 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">New Chat</button>
             </div>
             <div className="flex-1 overflow-y-auto">
               <div className="p-2 border-t">
@@ -396,17 +406,17 @@ const handleViewDocument = (docId, docName, tag) => {
                 <div className="space-y-2">
                   {Object.entries(groupedDocuments).map(([tag, docsInGroup]) => (
                     <div key={tag}>
-                      <button onClick={() => toggleTagExpansion(tag)} className="w-full flex justify-between items-center px-2 py-1 text-sm font-semibold text-gray-600 rounded-md hover:bg-gray-100">
+                      <button onClick={() => toggleTagExpansion(tag)} className="w-full flex justify-between items-center px-2 py-1 text-sm font-semibold text-gray-600 rounded-md hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
                         <span>{tag}</span>
                         <ChevronDown className={cn("h-4 w-4 transition-transform", expandedTags[tag] ? "rotate-180" : "")} />
                       </button>
                       {expandedTags[tag] && (
                         <div className="pl-2 mt-1 space-y-1">
                           {docsInGroup.map(doc => (
-                            <div key={doc.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 text-sm group">
+                            <div key={doc.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-sm group">
                               <div className="flex items-center gap-2 truncate">
                                 <DocumentStatusIcon status={doc.status} />
-                                <span className="truncate text-gray-600" title={doc.filename}>{doc.filename}</span>
+                                <span className="truncate text-gray-600 dark:text-gray-300" title={doc.filename}>{doc.filename}</span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <button onClick={() => handleViewDocument(doc.id, doc.filename, tag)} className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -430,11 +440,11 @@ const handleViewDocument = (docId, docName, tag) => {
                 {conversations.map(conv => (
                   <div key={conv.id} className={cn(
                     "w-full flex items-center justify-between p-2 rounded-lg text-sm group",
-                    selectedConversation?.id === conv.id ? 'bg-blue-50' : 'hover:bg-gray-100'
+                    selectedConversation?.id === conv.id ? 'bg-blue-50 dark:bg-blue-900/40' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                   )}>
                     <button onClick={() => selectConversation(conv.id)} className={cn(
                         "text-left truncate flex-1",
-                        selectedConversation?.id === conv.id ? 'text-blue-700 font-semibold' : 'text-gray-600'
+                        selectedConversation?.id === conv.id ? 'text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-600 dark:text-gray-300'
                     )}>
                       {conv.title}
                     </button>
@@ -451,20 +461,32 @@ const handleViewDocument = (docId, docName, tag) => {
               
             </div>
           </div>
+          {isSidebarOpen && (
+            <div className="fixed inset-0 bg-black/40 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+          )}
 
           {/* Main Chat Window */}
-          <div className="flex-1 flex flex-col bg-gray-50">
+          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-950">
             {/* Add the style tag here */}
             <style>{animationStyles}</style>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="px-3 md:px-6 pt-3 md:pt-6">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border bg-white text-gray-700 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-200"
+              >
+                <Menu className="h-4 w-4" />
+                Menu
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6">
               {selectedConversation?.messages?.map((msg, index) => (
                 <div key={index} className={cn("flex gap-4", msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                   {msg.role === 'assistant' && <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0"><Bot size={20} /></div>}
                   
                   <div className={cn(
-                    "max-w-2xl p-4 rounded-xl relative group prose prose-sm max-w-none", 
-                    msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 shadow-sm rounded-bl-none'
+                    "max-w-2xl p-3 md:p-4 rounded-xl relative group prose prose-sm max-w-none", 
+                    msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 shadow-sm rounded-bl-none dark:bg-gray-900 dark:text-gray-100 dark:border dark:border-gray-800'
                   )}>
                     <ReactMarkdown>
                       {msg.content}
@@ -499,28 +521,28 @@ const handleViewDocument = (docId, docName, tag) => {
               {!selectedConversation && 
                 <div className="text-center text-gray-500 pt-20">
                     <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Study Assistant</h3>
-                    <p className="mt-1 text-sm text-gray-500">Upload a document or start a new conversation.</p>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Study Assistant</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Upload a document or start a new conversation.</p>
                 </div>
               }
               <div ref={chatEndRef} />
             </div>
 
             {/* Input Area */}
-            <div className="border-t p-4 bg-white/80 backdrop-blur-sm">
+            <div className="border-t p-3 md:p-4 bg-white/80 backdrop-blur-sm dark:bg-gray-950/80 dark:border-gray-800">
               <div className="max-w-3xl mx-auto">
                 {error && <p className="text-red-500 text-sm mb-2 text-center">{error}</p>}
                 
-                <div className="flex items-center gap-4 mb-2">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-2">
                   {/* Resized Tag Input */}
-                  <div className="flex items-center gap-2 border rounded-full py-2 px-3 bg-white w-64">
+                  <div className="flex items-center gap-2 border rounded-full py-2 px-3 bg-white dark:bg-gray-900 dark:border-gray-800 w-full md:w-64">
                     <Tag className="h-5 w-5 text-gray-400" />
                     <input
                       list="subject-tags"
                       placeholder="General (optional)"
                       value={tag}
                       onChange={(e) => setTag(e.target.value)}
-                      className="w-full text-sm outline-none bg-transparent"
+                      className="w-full text-sm outline-none bg-transparent dark:text-gray-200"
                     />
                     <datalist id="subject-tags">
                       {availableTags.map((t) => (
@@ -560,7 +582,7 @@ const handleViewDocument = (docId, docName, tag) => {
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAskQuestion(e); } }}
                     rows={1}
-                    className="w-full py-3 pl-12 pr-12 text-sm border rounded-full resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full py-3 pl-12 pr-12 text-sm border rounded-full resize-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                   />
                   <button type="submit" disabled={isLoading || !newMessage.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed">
                     <Send className="h-5 w-5" />

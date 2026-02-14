@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { SidebarNavigation } from "./SidebarNavigation" // adjusted import
-import { Send, Search, MoreVertical, MessageCircle, Users, Phone, Video } from "lucide-react"
+import { Send, Search, MoreVertical, MessageCircle, Users, Phone, Video, Menu } from "lucide-react"
 
 const staticUsers = [
   {
@@ -55,6 +55,7 @@ export default function ChatPage() {
   const [message, setMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [messages, setMessages] = useState(staticMessages)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -105,20 +106,20 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex">
       <SidebarNavigation />
 
       <main className="flex-1 flex h-screen">
         {/* Users List */}
-        <div className="w-80 border-r border-gray-300 flex flex-col bg-white">
+        <div className={`w-72 md:w-80 border-r border-gray-300 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900 fixed md:static inset-y-0 left-14 md:left-0 transform transition-transform duration-200 z-30 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
           <div className="p-4 border-b border-gray-300">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                 <MessageCircle className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Team Chat</h1>
-                <p className="text-sm text-gray-500">{staticUsers.length} members</p>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Team Chat</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{staticUsers.length} members</p>
               </div>
             </div>
 
@@ -130,7 +131,7 @@ export default function ChatPage() {
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
           </div>
@@ -142,7 +143,7 @@ export default function ChatPage() {
                 <div
                   key={user.id}
                   className={`cursor-pointer transition-all duration-200 p-3 rounded-lg hover:bg-gray-100 ${
-                    selectedUser === user.id ? "bg-blue-50 border-l-4 border-blue-500" : ""
+                    selectedUser === user.id ? "bg-blue-50 border-l-4 border-blue-500 dark:bg-blue-900/30" : ""
                   }`}
                   onClick={() => setSelectedUser(user.id)}
                 >
@@ -158,8 +159,8 @@ export default function ChatPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{user.name}</p>
-                      <p className="text-sm text-gray-500 truncate">{user.lastSeen}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{user.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user.lastSeen}</p>
                     </div>
                   </div>
                 </div>
@@ -167,13 +168,25 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+        {isSidebarOpen && (
+          <div className="fixed inset-0 bg-black/40 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+        )}
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col bg-white">
+        <div className="flex-1 flex flex-col bg-white dark:bg-slate-950">
+          <div className="p-3 md:hidden">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border bg-white text-gray-700 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-200"
+            >
+              <Menu className="h-4 w-4" />
+              Menu
+            </button>
+          </div>
           {selectedUserData ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b border-gray-300 bg-white flex items-center justify-between">
+              <div className="p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <img
                     src={selectedUserData.avatar}
@@ -181,8 +194,8 @@ export default function ChatPage() {
                     className="h-10 w-10 rounded-full object-cover"
                   />
                   <div>
-                    <h3 className="font-semibold text-gray-900">{selectedUserData.name}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{selectedUserData.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {selectedUserData.status === "online"
                         ? "Active now"
                         : `Last seen ${selectedUserData.lastSeen}`}
@@ -190,13 +203,13 @@ export default function ChatPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="p-2 border rounded-lg hover:bg-gray-100">
+                  <button className="p-2 border rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800 dark:text-gray-200">
                     <Phone className="h-4 w-4" />
                   </button>
-                  <button className="p-2 border rounded-lg hover:bg-gray-100">
+                  <button className="p-2 border rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800 dark:text-gray-200">
                     <Video className="h-4 w-4" />
                   </button>
-                  <button className="p-2 border rounded-lg hover:bg-gray-100">
+                  <button className="p-2 border rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800 dark:text-gray-200">
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </div>
@@ -214,7 +227,7 @@ export default function ChatPage() {
                         className={`max-w-[70%] rounded-lg px-4 py-2 ${
                           msg.senderId === "current-user"
                             ? "bg-blue-500 text-white"
-                            : "bg-gray-200 text-gray-900"
+                            : "bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                         }`}
                       >
                         <p className="text-sm">{msg.content}</p>
@@ -233,7 +246,7 @@ export default function ChatPage() {
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t border-gray-300 bg-white">
+              <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <div className="flex gap-3">
                   <input
                     type="text"
@@ -241,7 +254,7 @@ export default function ChatPage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
                   />
                   <button
                     onClick={handleSendMessage}
@@ -254,13 +267,13 @@ export default function ChatPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-slate-950">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-4">
                   <Users className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
-                <p className="text-gray-600">Choose someone from your team to start chatting</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Select a conversation</h3>
+                <p className="text-gray-600 dark:text-gray-400">Choose someone from your team to start chatting</p>
               </div>
             </div>
           )}
