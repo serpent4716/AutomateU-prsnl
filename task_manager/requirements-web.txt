@@ -22,6 +22,7 @@ beautifulsoup4
 cryptography
 python-dotenv
 requests
+pgvector
 google-generativeai
 numpy
 google-cloud-vision

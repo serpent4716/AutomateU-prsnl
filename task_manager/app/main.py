@@ -25,6 +25,7 @@ import app.utils.summarize as summarize
 import app.utils.tasks as tasks
 import app.utils.moderation as moderation
 import app.storage as storage
+import app.utils.pgvector_rag as pgvector_rag
 from redis import asyncio as aioredis
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 from pydantic_settings import BaseSettings
@@ -78,12 +79,14 @@ class Settings(BaseSettings):
 settings = Settings()
 RAG_QUEUE_NAME = os.getenv("RAG_QUEUE", "celery")
 API_ONLY_RAG = os.getenv("API_ONLY_RAG", "false").lower() == "true"
+USE_PGVECTOR_RAG = os.getenv("USE_PGVECTOR_RAG", "true").lower() == "true"
 
 app = FastAPI()
 # Keep create_all only for non-production local workflows, unless explicitly
 # enabled for first-time production bootstrap.
 # AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true"
 AUTO_CREATE_TABLES = "true"
+database.ensure_pgvector_extension()
 if settings.APP_ENV.lower() != "production" or AUTO_CREATE_TABLES:
     models.Base.metadata.create_all(bind=database.engine)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -598,39 +601,54 @@ async def ask_question(
     # API-only answer generation, but keep retrieval metadata for citations.
     sources = []
     context_text = ""
-    context_docs = []
-    tag_candidates = []
-    requested_tag = (ask_request.tag or "").strip() or "central"
-    tag_candidates.append(requested_tag)
-    if requested_tag != "central":
-        tag_candidates.append("central")
-
-    seen_doc_keys = set()
-    for candidate_tag in tag_candidates:
+    if USE_PGVECTOR_RAG:
         try:
-            retrieved = populate_db.retrieve_tree_based_context(
-                query=ask_request.question,
-                tag=candidate_tag,
+            retrieved = pgvector_rag.retrieve_context(
+                db=db,
+                question=ask_request.question,
+                user_id=current_user.id,
+                tag=(ask_request.tag or "").strip() or "central",
                 top_k=3,
-                user_id=str(current_user.id),
             )
-            for doc in retrieved:
-                key = (
-                    str(doc.metadata.get("doc_id", "")),
-                    str(doc.metadata.get("source", "")),
-                    str(doc.metadata.get("page", "")),
-                )
-                if key in seen_doc_keys:
-                    continue
-                seen_doc_keys.add(key)
-                context_docs.append(doc)
+            if retrieved:
+                context_text = "\n\n---\n\n".join([c.content for c in retrieved])
+                sources = pgvector_rag.format_sources(retrieved)
         except Exception as e:
-            print(f"Context retrieval unavailable for tag={candidate_tag}: {e}")
+            print(f"pgvector context retrieval failed: {e}")
+    else:
+        context_docs = []
+        tag_candidates = []
+        requested_tag = (ask_request.tag or "").strip() or "central"
+        tag_candidates.append(requested_tag)
+        if requested_tag != "central":
+            tag_candidates.append("central")
 
-    context_docs = context_docs[:3]
-    if context_docs:
-        context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
-        sources = populate_db.format_sources(context_docs)
+        seen_doc_keys = set()
+        for candidate_tag in tag_candidates:
+            try:
+                retrieved = populate_db.retrieve_tree_based_context(
+                    query=ask_request.question,
+                    tag=candidate_tag,
+                    top_k=3,
+                    user_id=str(current_user.id),
+                )
+                for doc in retrieved:
+                    key = (
+                        str(doc.metadata.get("doc_id", "")),
+                        str(doc.metadata.get("source", "")),
+                        str(doc.metadata.get("page", "")),
+                    )
+                    if key in seen_doc_keys:
+                        continue
+                    seen_doc_keys.add(key)
+                    context_docs.append(doc)
+            except Exception as e:
+                print(f"Context retrieval unavailable for tag={candidate_tag}: {e}")
+
+        context_docs = context_docs[:3]
+        if context_docs:
+            context_text = "\n\n---\n\n".join([doc.page_content for doc in context_docs])
+            sources = populate_db.format_sources(context_docs)
     formatted_history = _format_chat_history_light(chat_history_messages)
     answer = _query_gemini_api_only(ask_request.question, formatted_history, context_text)
     # Save the assistant's response

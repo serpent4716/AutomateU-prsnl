@@ -17,3 +17,5 @@ cryptography
 
 google-generativeai
 python-docx
+PyMuPDF
+pgvector

@@ -5,6 +5,7 @@ from app.database import Base
 import enum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableList
+from pgvector.sqlalchemy import Vector
 
 
 # Enum for document status
@@ -144,6 +145,24 @@ class Document(Base):
     content_type = Column(String, nullable=True)
 
     quiz_sessions = relationship("QuizSession", back_populates="source_document", cascade="all, delete-orphan")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tag = Column(String, nullable=False, index=True)
+    source = Column(String, nullable=False)
+    page = Column(Integer, nullable=False, default=1)
+    chunk_index = Column(Integer, nullable=False, default=0)
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(768), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    document = relationship("Document", back_populates="chunks")
 class Conversation(Base):
     __tablename__ = "conversations"
     id = Column(String, primary_key=True, index=True) # A UUID for the conversation

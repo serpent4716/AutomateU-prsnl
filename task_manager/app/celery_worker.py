@@ -19,6 +19,7 @@ import os
 import importlib
 
 API_ONLY_RAG = os.getenv("API_ONLY_RAG", "false").lower() == "true"
+USE_PGVECTOR_RAG = os.getenv("USE_PGVECTOR_RAG", "true").lower() == "true"
 
 # --- Standalone DB Session for Background Task ---
 # The background task runs in a separate context and needs its own DB connection.
@@ -61,9 +62,22 @@ def process_document_task(
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
             local_path = storage.download_to_temp(s3_key, filename_hint=hint)
 
-        if API_ONLY_RAG:
-            # API-only mode: skip local heavy ingestion/vector pipeline.
-            # Keep status flow compatible for UI polling.
+        if USE_PGVECTOR_RAG:
+            pgvector_rag = importlib.import_module("app.utils.pgvector_rag")
+            chunk_count = pgvector_rag.ingest_document_chunks(
+                db=db,
+                doc_id=doc_id,
+                file_path=local_path,
+                tag=tag,
+                user_id=user_id,
+                source_filename=source_filename,
+            )
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.COMPLETED, "chroma_ids": [f"pgvector_chunks:{chunk_count}"]}
+            )
+            db.commit()
+        elif API_ONLY_RAG:
+            # API-only mode without pgvector: no local ingestion.
             db.query(models.Document).filter(models.Document.id == doc_id).update(
                 {"status": models.DocumentStatus.COMPLETED, "chroma_ids": []}
             )
@@ -124,8 +138,22 @@ def process_quiz_document(
             hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
             local_path = storage.download_to_temp(s3_key, filename_hint=hint)
 
-        if API_ONLY_RAG:
-            # API-only mode: skip local heavy quiz ingestion/vector pipeline.
+        if USE_PGVECTOR_RAG:
+            pgvector_rag = importlib.import_module("app.utils.pgvector_rag")
+            chunk_count = pgvector_rag.ingest_document_chunks(
+                db=db,
+                doc_id=doc_id,
+                file_path=local_path,
+                tag=tag,
+                user_id=user_id,
+                source_filename=source_filename,
+            )
+            db.query(models.Document).filter(models.Document.id == doc_id).update(
+                {"status": models.DocumentStatus.COMPLETED, "chroma_ids": [f"pgvector_chunks:{chunk_count}"]}
+            )
+            db.commit()
+        elif API_ONLY_RAG:
+            # API-only mode without pgvector: no local quiz ingestion.
             db.query(models.Document).filter(models.Document.id == doc_id).update(
                 {"status": models.DocumentStatus.COMPLETED, "chroma_ids": []}
             )

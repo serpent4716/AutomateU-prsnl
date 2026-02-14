@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine  # creates connection to database
+from sqlalchemy import create_engine, text  # creates connection to database
 from sqlalchemy.ext.declarative import declarative_base  # for def database models(tables)
 from sqlalchemy.orm import sessionmaker  # ensure changes are committed/rolled back properly
 import os
@@ -36,3 +36,14 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def ensure_pgvector_extension() -> None:
+    if not DATABASE_URL.startswith("postgresql+psycopg2://"):
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    except Exception as e:
+        # Don't crash service boot; emit a clear signal for deployment logs.
+        print(f"Warning: could not enable pgvector extension: {e}")
