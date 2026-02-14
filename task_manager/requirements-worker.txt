@@ -1,5 +1,9 @@
 # Worker deps optimized for API_ONLY_RAG mode.
 # Heavy local RAG/embedding/OCR stacks are intentionally excluded.
+fastapi
+python-jose[cryptography]
+passlib==1.7.4
+bcrypt==4.0.1
 celery[redis]
 redis
 sqlalchemy
@@ -9,6 +13,7 @@ python-dotenv
 boto3
 requests
 beautifulsoup4
+cryptography
 
 google-generativeai
 python-docx
