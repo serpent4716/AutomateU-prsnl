@@ -34,12 +34,12 @@ const SpotlightCard = ({ children, className = "", spotlightColor }) => {
 
         before:absolute before:inset-0 before:rounded-[inherit]
         before:bg-[radial-gradient(circle_at_var(--mouse-x)_var(--mouse-y),var(--spotlight-color),transparent_70%)]
-        before:opacity-0 before:transition-opacity before:duration-500
+        before:opacity-0 before:transition-opacity before:duration-500 before:pointer-events-none
         hover:before:opacity-60
         ${className}
       `}
     >
-      {children}
+      <div className="relative z-10">{children}</div>
     </div>
   );
 };

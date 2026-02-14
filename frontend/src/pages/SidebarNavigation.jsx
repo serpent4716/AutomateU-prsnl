@@ -94,7 +94,7 @@ export function SidebarNavigation() {
   return (
     <div
       className={cn(
-        "w-14 md:w-16 border-r flex flex-col items-center py-3 md:py-4 space-y-2 transition-all duration-200",
+        "w-14 md:w-16 border-r flex flex-col items-center py-3 md:py-4 space-y-2 transition-all duration-200 sticky top-0 h-screen z-40 shrink-0 pointer-events-auto",
 
         // Light mode
         "bg-gray-100 border-gray-200",

@@ -39,15 +39,9 @@ function App() {
     }
   });
 
-  const hasStoredUser = Boolean(localStorage.getItem('user'));
-  const [isLoading, setIsLoading] = useState(hasStoredUser);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!hasStoredUser) {
-      setIsLoading(false);
-      return;
-    }
-
     let isMounted = true;
 
     const refreshSession = async () => {
@@ -77,7 +71,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, [hasStoredUser]);
+  }, []);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -88,8 +82,8 @@ function App() {
       <ThemeProvider>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/dashboard" element={<ProtectedRoute user={userInfo}><DashboardPage /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute user={userInfo}><ChatPage /></ProtectedRoute>} />
             <Route path="/attendance" element={userInfo ? <AttendancePage user={userInfo} /> : <Navigate to="/login" />} />
             <Route path="/login" element={<LoginPage setUserInfo={setUserInfo} />} />
             <Route path="/signup" element={<SignupPage />} />
@@ -102,7 +96,8 @@ function App() {
             <Route path="/study-assistant/quiz" element={userInfo ? <StudyAssistantQuizPage user={userInfo} /> : <Navigate to="/login" />} />
             <Route path="/study-assistant/summarize" element={userInfo ? <StudyAssistantSummarizePage user={userInfo} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={userInfo ? <SettingsPage userInfo={userInfo} setUserInfo={setUserInfo} /> : <Navigate to="/login" />} />
-            <Route path="*" element={<DashboardPage />} />
+            <Route path="/" element={userInfo ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to={userInfo ? "/dashboard" : "/login"} replace />} />
           </Routes>
         </Suspense>
       </ThemeProvider>
