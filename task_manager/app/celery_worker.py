@@ -13,6 +13,7 @@ from sqlalchemy import func, case
 from app.utils.basic_1 import run_full_generation_process
 from sqlalchemy.orm import aliased
 from app.database import DATABASE_URL
+import app.storage as storage
 # We import the database URL so the worker knows how to connect to your main SQL database.
 from dotenv import load_dotenv
 load_dotenv()
@@ -30,7 +31,14 @@ def get_standalone_session():
 # name="process_document_task": This gives the task a unique name. This is how
 # your FastAPI app will refer to this specific job.
 @celery_app.task(name="process_document_task")
-def process_document_task(doc_id: str, file_path: str, tag: str, user_id: str):
+def process_document_task(
+    doc_id: str,
+    file_path: str | None,
+    tag: str,
+    user_id: str,
+    s3_key: str | None = None,
+    source_filename: str | None = None,
+):
     """
     This is the Celery task that wraps your existing ingestion pipeline.
     It takes the same arguments as the original function.
@@ -45,19 +53,38 @@ def process_document_task(doc_id: str, file_path: str, tag: str, user_id: str):
     # function that you've already built and tested. We are reusing your
     # existing logic, not rewriting it. This function handles everything:
     # opening the file, OCR, cleaning, embedding, and updating the SQL database.
-    populate_db.run_ingestion_pipeline(
-        db_url=db_url,
-        doc_id=doc_id,
-        file_path=file_path,
-        tag=tag,
-        user_id=user_id
-    )
+    local_path = file_path
+    try:
+        if s3_key:
+            hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
+            local_path = storage.download_to_temp(s3_key, filename_hint=hint)
+
+        populate_db.run_ingestion_pipeline(
+            db_url=db_url,
+            doc_id=doc_id,
+            file_path=local_path,
+            tag=tag,
+            user_id=user_id
+        )
+    finally:
+        if s3_key and local_path and os.path.exists(local_path):
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
     
     # The worker prints this message when the job is complete.
     print(f"CELERY WORKER: Finished job for doc_id: {doc_id}")
     
 @celery_app.task(name="process_quiz_document")
-def process_quiz_document(doc_id: str, file_path: str, tag: str, user_id: str):
+def process_quiz_document(
+    doc_id: str,
+    file_path: str | None,
+    tag: str,
+    user_id: str,
+    s3_key: str | None = None,
+    source_filename: str | None = None,
+):
     """
     This is the Celery task that wraps your existing ingestion pipeline.
     It takes the same arguments as the original function.
@@ -67,13 +94,25 @@ def process_quiz_document(doc_id: str, file_path: str, tag: str, user_id: str):
     
     db_url = str(DATABASE_URL)
     
-    quiz.run_quiz_ingestion_pipeline(
-        db_url=db_url,
-        doc_id=doc_id,
-        file_path=file_path,
-        tag=tag,
-        user_id=user_id
-    )
+    local_path = file_path
+    try:
+        if s3_key:
+            hint = f"{doc_id}_{source_filename}" if source_filename else f"{doc_id}_document.bin"
+            local_path = storage.download_to_temp(s3_key, filename_hint=hint)
+
+        quiz.run_quiz_ingestion_pipeline(
+            db_url=db_url,
+            doc_id=doc_id,
+            file_path=local_path,
+            tag=tag,
+            user_id=user_id
+        )
+    finally:
+        if s3_key and local_path and os.path.exists(local_path):
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
     
     print(f"CELERY WORKER: Finished job for Quiz doc_id: {doc_id}")
 

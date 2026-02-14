@@ -37,7 +37,7 @@ const DocumentViewer = ({ docId, tag , filename}) => {
     if (!docId) return null;
 
     const base = (api.defaults.baseURL || "").replace(/\/+$/, "");
-    const documentUrl = `${base}/uploaded_docs/${tag}/${docId}_${filename}`;
+    const documentUrl = `${base}/document/${docId}`;
 
     return (
         <iframe

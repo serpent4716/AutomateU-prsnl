@@ -17,6 +17,7 @@ celery[redis]
 psycopg2-binary
 authlib
 itsdangerous
+boto3
 beautifulsoup4
 cryptography
 python-dotenv

@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 import app.utils.summarize as summarize 
 import app.utils.tasks as tasks
 import app.utils.moderation as moderation
+import app.storage as storage
 from redis import asyncio as aioredis
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 from pydantic_settings import BaseSettings
@@ -276,15 +277,18 @@ async def upload_doc(
     db.commit()
     
     target_dir = os.path.join(UPLOAD_DOC_DIR, tag)
-    os.makedirs(target_dir, exist_ok=True)
     unique_name = f"{doc_id}_{file.filename}"
     permanent_file_path = os.path.join(target_dir, unique_name)
-    # Use a unique name for the temp file to avoid conflicts
+    s3_key = storage.make_uploaded_doc_key(tag, doc_id, file.filename)
+
     try:
-        with open(permanent_file_path, "wb") as f:
-            f.write(file_content)
-    except IOError as e:
-        # If file saving fails, revert the database entry
+        if storage.s3_enabled():
+            storage.upload_bytes(s3_key, file_content, content_type=file.content_type)
+        else:
+            os.makedirs(target_dir, exist_ok=True)
+            with open(permanent_file_path, "wb") as f:
+                f.write(file_content)
+    except Exception as e:
         db.delete(db_document)
         db.commit()
         raise HTTPException(
@@ -300,7 +304,17 @@ async def upload_doc(
     #     tag=tag,
     #     user_id=str(current_user.id)
     # )
-    celery_app.send_task("process_document_task", kwargs={"doc_id": doc_id, "file_path": permanent_file_path, "tag": tag, "user_id": str(current_user.id)})
+    celery_app.send_task(
+        "process_document_task",
+        kwargs={
+            "doc_id": doc_id,
+            "file_path": None if storage.s3_enabled() else permanent_file_path,
+            "s3_key": s3_key if storage.s3_enabled() else None,
+            "source_filename": file.filename,
+            "tag": tag,
+            "user_id": str(current_user.id),
+        },
+    )
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
     return schemas.Document.model_validate(db_document)
@@ -331,17 +345,24 @@ async def get_document(
             detail="Document not found or you do not have permission to view it."
         )
 
-    file_path = os.path.join(UPLOAD_DOC_DIR, document.tag, f"{document.id}_{document.filename}")
+    if storage.s3_enabled():
+        key = storage.make_uploaded_doc_key(document.tag, document.id, document.filename)
+        try:
+            signed_url = storage.presign_get_url(key, expires_seconds=300)
+            return RedirectResponse(url=signed_url)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve document from S3: {e}")
+    else:
+        file_path = os.path.join(UPLOAD_DOC_DIR, document.tag, f"{document.id}_{document.filename}")
 
-    if not os.path.exists(file_path):
-        # Log this error for system administrators
-        print(f"ERROR: File not found for doc_id {doc_id} at path {file_path}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="File is missing from storage."
-        )
+        if not os.path.exists(file_path):
+            print(f"ERROR: File not found for doc_id {doc_id} at path {file_path}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="File is missing from storage."
+            )
 
-    return FileResponse(file_path, media_type=document.content_type, filename=document.filename)
+        return FileResponse(file_path, media_type=document.content_type, filename=document.filename)
 
 # NEW ENDPOINT to check document status
 @app.get("/documents/{doc_id}/status", response_model=schemas.Document)
@@ -1159,15 +1180,17 @@ async def upload_document_for_quiz(
     db.commit()
     
     target_dir = os.path.join(UPLOAD_DOC_DIR, tag)
-    os.makedirs(target_dir, exist_ok=True)
     unique_name = f"{doc_id}_{file.filename}"
     permanent_file_path = os.path.join(target_dir, unique_name)
-    # Use a unique name for the temp file to avoid conflicts
+    s3_key = storage.make_uploaded_doc_key(tag, doc_id, file.filename)
     try:
-        with open(permanent_file_path, "wb") as f:
-            f.write(file_content)
-    except IOError as e:
-        # If file saving fails, revert the database entry
+        if storage.s3_enabled():
+            storage.upload_bytes(s3_key, file_content, content_type=file.content_type)
+        else:
+            os.makedirs(target_dir, exist_ok=True)
+            with open(permanent_file_path, "wb") as f:
+                f.write(file_content)
+    except Exception as e:
         db.delete(db_document)
         db.commit()
         raise HTTPException(
@@ -1176,7 +1199,17 @@ async def upload_document_for_quiz(
         )
 
     # Start the Celery task
-    celery_app.send_task("process_quiz_document", kwargs={"doc_id": doc_id, "file_path": permanent_file_path, "tag": tag, "user_id": str(current_user.id)})
+    celery_app.send_task(
+        "process_quiz_document",
+        kwargs={
+            "doc_id": doc_id,
+            "file_path": None if storage.s3_enabled() else permanent_file_path,
+            "s3_key": s3_key if storage.s3_enabled() else None,
+            "source_filename": file.filename,
+            "tag": tag,
+            "user_id": str(current_user.id),
+        },
+    )
     
     print(f"Dispatched task for doc_id: {doc_id} to Celery.")
 
