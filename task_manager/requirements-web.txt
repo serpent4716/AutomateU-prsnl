@@ -35,3 +35,4 @@ PyMuPDF
 langchain==0.3.27
 langchain-huggingface
 sentence-transformers
+python-docx
