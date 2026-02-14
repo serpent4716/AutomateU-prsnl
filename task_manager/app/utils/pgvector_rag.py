@@ -15,7 +15,7 @@ from app import models
 
 
 EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "3072"))
 MAX_CHUNK_CHARS = int(os.getenv("PGVECTOR_CHUNK_SIZE", "800"))
 CHUNK_OVERLAP = int(os.getenv("PGVECTOR_CHUNK_OVERLAP", "80"))
 
