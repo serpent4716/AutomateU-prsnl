@@ -1,5 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
 fastapi
 uvicorn
 gunicorn
@@ -33,6 +31,4 @@ langchain-chroma>=0.1.2
 chromadb>=0.5
 PyMuPDF
 langchain==0.3.27
-langchain-huggingface
-sentence-transformers
 python-docx

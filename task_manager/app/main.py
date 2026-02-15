@@ -89,12 +89,12 @@ AUTO_CREATE_TABLES = "true"
 database.ensure_pgvector_extension()
 if settings.APP_ENV.lower() != "production" or AUTO_CREATE_TABLES:
     models.Base.metadata.create_all(bind=database.engine)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(UPLOAD_DOC_DIR, exist_ok=True)
-os.makedirs(DOC_GENERATION_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")  
-app.mount("/uploaded_docs", StaticFiles(directory=UPLOAD_DOC_DIR), name="uploaded_docs") 
-app.mount("/generated_docs", StaticFiles(directory=DOC_GENERATION_DIR), name="generated_docs")
+# os.makedirs(UPLOAD_DIR, exist_ok=True)
+# os.makedirs(UPLOAD_DOC_DIR, exist_ok=True)
+# os.makedirs(DOC_GENERATION_DIR, exist_ok=True)
+# app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")  
+# app.mount("/uploaded_docs", StaticFiles(directory=UPLOAD_DOC_DIR), name="uploaded_docs") 
+# app.mount("/generated_docs", StaticFiles(directory=DOC_GENERATION_DIR), name="generated_docs")
 
 def get_db():
     
@@ -653,6 +653,7 @@ async def ask_question(
     answer = _query_gemini_api_only(ask_request.question, formatted_history, context_text)
     sources = sources[:3]
     # Save the assistant's response
+    sources = sources[:3]
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)
     db.commit()
@@ -811,10 +812,50 @@ async def login_google(request: Request):
     
 #     # Redirect to the frontend, which will now have the auth cookies
 #     return RedirectResponse(url=_frontend_route("/dashboard"))
+# @app.get('/auth/google/callback')
+# async def auth_google_callback(request: Request, response: Response, db: Session = Depends(get_db)):
+#     """
+#     NEW: Handles the callback from Google. Finds or creates the user,
+#     then sets the *same* login cookies as the password login.
+#     """
+#     try:
+#         token = await oauth.google.authorize_access_token(request)
+#     except Exception as e:
+#         return RedirectResponse(url=_frontend_route("/login?error=google-auth-failed"))
+
+#     user_info = token.get('userinfo')
+#     if not user_info or not user_info.get('email'):
+#         return RedirectResponse(url=_frontend_route("/login?error=google-info-failed"))
+
+#     user_email = user_info['email']
+#     user_name = user_info.get('name', 'AutomateU User')
+
+#     db_user = db.query(models.User).filter(models.User.email == user_email).first()
+    
+#     if not db_user:
+#         # User doesn't exist - create them
+#         db_user = models.User(
+#             name=user_name,
+#             email=user_email,
+#             hashed_password=None,  # No password for OAuth users
+#             is_admin=False,
+#             is_verified=True       # Google verifies email for us
+#         )
+#         db.add(db_user)
+#         db.commit()
+#         db.refresh(db_user)
+    
+#     # User exists, log them in using our centralized cookie function
+#     _set_login_cookies(response, db_user.id)
+    
+#     # Redirect to the frontend, which will now have the auth cookies
+#     return RedirectResponse(url=_frontend_route("/dashboard"))
 @app.get('/auth/google/callback')
+async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
+    except Exception:
     except Exception:
         return RedirectResponse(url=_frontend_route("/login?error=google-auth-failed"))
 
@@ -827,12 +868,15 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
 
     db_user = db.query(models.User).filter(models.User.email == user_email).first()
 
+
     if not db_user:
         db_user = models.User(
             name=user_name,
             email=user_email,
             hashed_password=None,
+            hashed_password=None,
             is_admin=False,
+            is_verified=True
             is_verified=True
         )
         db.add(db_user)
