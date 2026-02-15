@@ -367,18 +367,25 @@ export default function StudyAssistantQuizPage() {
     setError(null);
 
     const payload = {
-      session_id: currentQuizSession.id,
-      answers: Object.entries(userAnswers).map(([qid, ans]) => ({
-        question_id: parseInt(qid, 10),
-        selected_answer: ans,
-      })),
-    };
-
-    currentQuizSession.questions.forEach((q) => {
-      if (!payload.answers.find((a) => a.question_id === q.id)) {
-        payload.answers.push({ question_id: q.id, selected_answer: "" });
-      }
-    });
+        session_id: currentQuizSession.id,
+        answers: currentQuizSession.questions.map(q => ({
+          question_id: q.id,
+          selected_answer: userAnswers[q.id] ?? "",
+        })),
+      };
+    // const payload = {
+    //   session_id: currentQuizSession.id,
+    //   answers: Object.entries(userAnswers).map(([qid, ans]) => ({
+    //     question_id: parseInt(qid, 10),
+    //     selected_answer: ans,
+    //   })),
+    // };
+    
+    // currentQuizSession.questions.forEach((q) => {
+    //   if (!payload.answers.find((a) => a.question_id === q.id)) {
+    //     payload.answers.push({ question_id: q.id, selected_answer: "" });
+    //   }
+    // });
 
     try {
       const response = await api.post("/quiz/submit", payload);
