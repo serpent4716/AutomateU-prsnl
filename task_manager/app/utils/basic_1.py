@@ -8,6 +8,11 @@ import os
 import google.generativeai as genai
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+image_path = BASE_DIR / "image.png"
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -216,7 +221,7 @@ def create_document(output_path, details, num_problems, selected_fields):
     """Creates and populates the Word document from scratch."""
     doc = Document()
     
-    add_college_header_stacked(doc, logo_path='D:\AUTOMATEU\AutomateU-prsnl\\task_manager\\app\\utils\\image.png')
+    add_college_header_stacked(doc, logo_path=image_path)
     # --- HEADER TABLE ---
     if any(f in selected_fields for f in ['Name', 'UID', 'Class and Batch', 'Experiment No', 'Date', 'Aim', 'Objective']):
         header_table = doc.add_table(rows=0, cols=2)
