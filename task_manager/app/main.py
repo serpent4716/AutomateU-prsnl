@@ -651,6 +651,7 @@ async def ask_question(
             sources = populate_db.format_sources(context_docs)
     formatted_history = _format_chat_history_light(chat_history_messages)
     answer = _query_gemini_api_only(ask_request.question, formatted_history, context_text)
+    sources = sources[:3]
     # Save the assistant's response
     assistant_message = models.Message(conversation_id=conversation_id, role="assistant", content=answer, sources=sources)
     db.add(assistant_message)
