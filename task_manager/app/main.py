@@ -773,15 +773,49 @@ async def login_google(request: Request):
     redirect_uri = request.url_for('auth_google_callback')
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
+# @app.get('/auth/google/callback')
+# async def auth_google_callback(request: Request, response: Response, db: Session = Depends(get_db)):
+#     """
+#     NEW: Handles the callback from Google. Finds or creates the user,
+#     then sets the *same* login cookies as the password login.
+#     """
+#     try:
+#         token = await oauth.google.authorize_access_token(request)
+#     except Exception as e:
+#         return RedirectResponse(url=_frontend_route("/login?error=google-auth-failed"))
+
+#     user_info = token.get('userinfo')
+#     if not user_info or not user_info.get('email'):
+#         return RedirectResponse(url=_frontend_route("/login?error=google-info-failed"))
+
+#     user_email = user_info['email']
+#     user_name = user_info.get('name', 'AutomateU User')
+
+#     db_user = db.query(models.User).filter(models.User.email == user_email).first()
+    
+#     if not db_user:
+#         # User doesn't exist - create them
+#         db_user = models.User(
+#             name=user_name,
+#             email=user_email,
+#             hashed_password=None,  # No password for OAuth users
+#             is_admin=False,
+#             is_verified=True       # Google verifies email for us
+#         )
+#         db.add(db_user)
+#         db.commit()
+#         db.refresh(db_user)
+    
+#     # User exists, log them in using our centralized cookie function
+#     _set_login_cookies(response, db_user.id)
+    
+#     # Redirect to the frontend, which will now have the auth cookies
+#     return RedirectResponse(url=_frontend_route("/dashboard"))
 @app.get('/auth/google/callback')
-async def auth_google_callback(request: Request, response: Response, db: Session = Depends(get_db)):
-    """
-    NEW: Handles the callback from Google. Finds or creates the user,
-    then sets the *same* login cookies as the password login.
-    """
+async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
-    except Exception as e:
+    except Exception:
         return RedirectResponse(url=_frontend_route("/login?error=google-auth-failed"))
 
     user_info = token.get('userinfo')
@@ -792,25 +826,26 @@ async def auth_google_callback(request: Request, response: Response, db: Session
     user_name = user_info.get('name', 'AutomateU User')
 
     db_user = db.query(models.User).filter(models.User.email == user_email).first()
-    
+
     if not db_user:
-        # User doesn't exist - create them
         db_user = models.User(
             name=user_name,
             email=user_email,
-            hashed_password=None,  # No password for OAuth users
+            hashed_password=None,
             is_admin=False,
-            is_verified=True       # Google verifies email for us
+            is_verified=True
         )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-    
-    # User exists, log them in using our centralized cookie function
+
+    # CREATE redirect FIRST
+    response = RedirectResponse(url=_frontend_route("/dashboard"))
+
+    # THEN set cookies ON THE SAME OBJECT
     _set_login_cookies(response, db_user.id)
-    
-    # Redirect to the frontend, which will now have the auth cookies
-    return RedirectResponse(url=_frontend_route("/dashboard"))
+
+    return response
 
 
 # --------------------------------------------------------------------------
