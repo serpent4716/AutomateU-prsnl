@@ -33,11 +33,17 @@ from pydantic import EmailStr
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from datetime import timedelta
+import boto3
 import requests
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
-
+s3 = boto3.client(
+    "s3",
+    region_name=os.getenv("AWS_REGION"),
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+)
 
 class _LazyModule:
     """Lazy import helper to keep web memory/startup low on small instances."""
@@ -54,7 +60,7 @@ class _LazyModule:
     def __getattr__(self, item):
         return getattr(self._load(), item)
 
-
+BUCKET = os.getenv("AWS_S3_BUCKET")
 populate_db = _LazyModule("app.utils.populate_database")
 quiz = _LazyModule("app.utils.quiz")
 
@@ -1706,31 +1712,52 @@ async def download_document(
         models.GeneratedDocument.user_id == current_user.id
     ).first()
 
+    # if not doc:
+    #     raise HTTPException(status_code=404, detail="Document not found")
+        
+    # if doc.status != models.GenerationStatus.COMPLETED:
+    #     raise HTTPException(status_code=400, detail=f"Document is not ready. Status: {doc.status}")
+
+    # file_path = doc.generated_content
+    
+    # if not os.path.exists(file_path):
+    #     raise HTTPException(status_code=500, detail="Generated file not found on server.")
+
+    # # Get user's document count for a nice filename
+    # doc_count = db.query(models.GeneratedDocument).filter(
+    #     models.GeneratedDocument.user_id == current_user.id,
+    #     models.GeneratedDocument.status == models.GenerationStatus.COMPLETED
+    # ).count()
+    
+    # user_name_safe = "".join(e for e in current_user.name if e.isalnum()) or "User"
+    # filename = f"{user_name_safe}_Doc{doc_count or 1}.docx"
+
+    # return FileResponse(
+    #     file_path,
+    #     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    #     headers={"Content-Disposition": f"attachment; filename={filename}"}
+    # )
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-        
+
     if doc.status != models.GenerationStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail=f"Document is not ready. Status: {doc.status}")
+        raise HTTPException(status_code=400, detail="Document is not ready")
 
-    file_path = doc.generated_content
-    
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=500, detail="Generated file not found on server.")
+    if not doc.generated_content:
+        raise HTTPException(status_code=500, detail="File key missing")
 
-    # Get user's document count for a nice filename
-    doc_count = db.query(models.GeneratedDocument).filter(
-        models.GeneratedDocument.user_id == current_user.id,
-        models.GeneratedDocument.status == models.GenerationStatus.COMPLETED
-    ).count()
-    
-    user_name_safe = "".join(e for e in current_user.name if e.isalnum()) or "User"
-    filename = f"{user_name_safe}_Doc{doc_count or 1}.docx"
-
-    return FileResponse(
-        file_path,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    # Generate secure temporary URL (5 minutes)
+    signed_url = s3.generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": BUCKET,
+            "Key": doc.generated_content,
+            "ResponseContentDisposition": f'attachment; filename="{task_id}.docx"'
+        },
+        ExpiresIn=300  # seconds
     )
+
+    return RedirectResponse(signed_url)
 
 
 REDIS_URL = os.environ.get("REDIS_URL")

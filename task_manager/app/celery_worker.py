@@ -244,13 +244,22 @@ def generate_document_task(output_file_path: str, task_id: str, user_id: int, pa
         
         # 3. Call the main logic function
         # This is the *only* business logic call
-        print(f"[Task {task_id}] Calling doc_generator.run_full_generation_process...")
-        final_path = run_full_generation_process(output_file_path, payload_dict, task_id)
+        # print(f"[Task {task_id}] Calling doc_generator.run_full_generation_process...")
+        # final_path = run_full_generation_process(output_file_path, payload_dict, task_id)
+
+        # # 4. Update DB with success
+        # print(f"[Task {task_id}] Generation successful. Updating DB status to COMPLETED.")
+        # db_doc.status = models.GenerationStatus.COMPLETED
+        # db_doc.generated_content = final_path # Store the *actual* final path
+        # db.commit()
+        # 3. Generate + Upload
+        print(f"[Task {task_id}] Generating and uploading document...")
+        file_url = run_full_generation_process(payload_dict, task_id)
 
         # 4. Update DB with success
-        print(f"[Task {task_id}] Generation successful. Updating DB status to COMPLETED.")
+        print(f"[Task {task_id}] Upload complete. Saving URL.")
         db_doc.status = models.GenerationStatus.COMPLETED
-        db_doc.generated_content = final_path # Store the *actual* final path
+        db_doc.generated_content = file_url
         db.commit()
         
         return {"status": "completed", "task_id": task_id}

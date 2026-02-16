@@ -9,6 +9,32 @@ import google.generativeai as genai
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
 from pathlib import Path
+import boto3
+from io import BytesIO
+from uuid import uuid4
+
+s3 = boto3.client(
+    "s3",
+    region_name=os.getenv("AWS_S3_REGION"),
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+)
+
+BUCKET = os.getenv("AWS_S3_BUCKET")
+
+def upload_docx_to_s3(file_stream, filename):
+    key = f"generated_docs/{uuid4()}_{filename}"
+
+    s3.upload_fileobj(
+        file_stream,
+        BUCKET,
+        key,
+        ExtraArgs={
+            "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+    )
+
+    return key
 
 BASE_DIR = Path(__file__).resolve().parent
 image_path = BASE_DIR / "image.png"
@@ -325,8 +351,13 @@ def create_document(output_path, details, num_problems, selected_fields):
             for cell in row.cells:
                 set_cell_padding(cell, top=150, start=210, bottom=150, end=150)
 
-    doc.save(output_path)
-    print(f"\nDocument successfully saved as {output_path}")
+    # doc.save(output_path)
+    # print(f"\nDocument successfully saved as {output_path}")
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    return buffer
 
 def get_user_choices():
     """Gets user selection for which fields to include in the document."""
@@ -350,7 +381,7 @@ def get_user_choices():
             print("Invalid input. Please enter numbers from the list, separated by commas.")
 
 
-def run_full_generation_process(output_file_path, payload_dict, task_id):
+def run_full_generation_process(payload_dict, task_id):
     """
     This is the main "business logic" function.
     It's called by Celery but knows nothing about the DB.
@@ -358,7 +389,7 @@ def run_full_generation_process(output_file_path, payload_dict, task_id):
     an exception.
     """
     
-    print(f"[Task {task_id}] Generation process started. Output file: {output_file_path}")
+    print(f"[Task {task_id}] Generation process started.")
     
     # We wrap the *entire* logic in a try...finally
     # to ensure we don't leave any partial work.
@@ -418,24 +449,34 @@ def run_full_generation_process(output_file_path, payload_dict, task_id):
                 details[f"{{result_{i}}}"] = ""
         
         # 5. Call your create_document function
-        create_document(
-            output_path=output_file_path,
-            details=details,
-            num_problems=num_problems,
-            selected_fields=selected_fields
-        )
+        # create_document(
+        #     output_path=output_file_path,
+        #     details=details,
+        #     num_problems=num_problems,
+        #     selected_fields=selected_fields
+        # )
         
-        # 6. Return the final path on success
-        print(f"[Task {task_id}] Generation process complete.")
-        return output_file_path
+        # # 6. Return the final path on success
+        # print(f"[Task {task_id}] Generation process complete.")
+        # return output_file_path
+        file_stream = create_document(
+                details=details,
+                num_problems=num_problems,
+                selected_fields=selected_fields
+            )
+
+        url = upload_docx_to_s3(file_stream, f"{task_id}.docx")
+
+        print(f"[Task {task_id}] Uploaded to S3: {url}")
+        return url
         
     except Exception as e:
         # 7. If anything fails, print and re-raise the exception
         # so the Celery task can catch it and update the DB.
         print(f"[Task {task_id}] ERROR in run_full_generation_process: {e}")
         # Optional: Clean up failed file
-        if os.path.exists(output_file_path):
-            os.remove(output_file_path)
+        # if os.path.exists(output_file_path):
+        #     os.remove(output_file_path)
         raise e
     
 
