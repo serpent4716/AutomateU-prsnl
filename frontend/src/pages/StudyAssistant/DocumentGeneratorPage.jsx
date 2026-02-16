@@ -234,30 +234,53 @@ export default function DocumentGeneratorPage() {
     }
   };
 
+  // const handleDownload = async () => {
+  //   if (!currentTask?.task_id) return;
+  //   setIsDownloading(true);
+
+  //   try {
+  //     const res = await api.get(`/documents/download/${currentTask.task_id}`, {
+  //       responseType: "blob",
+  //     });
+
+  //     const blob = new Blob([res.data], {
+  //       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  //     });
+  //     const url = window.URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = "generated_document.docx";
+  //     a.click();
+  //     a.remove();
+  //     window.URL.revokeObjectURL(url);
+  //   } catch (e) {
+  //     setError("Download failed.");
+  //   }
+  //   setIsDownloading(false);
+  // };
   const handleDownload = async () => {
-    if (!currentTask?.task_id) return;
-    setIsDownloading(true);
+  if (!currentTask?.task_id) return;
+  setIsDownloading(true);
 
-    try {
-      const res = await api.get(`/documents/download/${currentTask.task_id}`, {
-        responseType: "blob",
-      });
+  try {
+    // get base URL from axios instance
+    const baseURL = api.defaults.baseURL || window.location.origin;
+    const downloadUrl = `${baseURL}/documents/download/${currentTask.task_id}`;
 
-      const blob = new Blob([res.data], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "generated_document.docx";
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      setError("Download failed.");
-    }
-    setIsDownloading(false);
-  };
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+  } catch (e) {
+    setError("Download failed.");
+  }
+
+  setIsDownloading(false);
+};
 
   const handleStartNew = () => {
     setStep(1);
