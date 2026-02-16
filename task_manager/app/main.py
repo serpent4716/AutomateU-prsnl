@@ -38,6 +38,11 @@ import requests
 UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
+
+async def optional_csrf(request: Request):
+    # Do nothing — bypass for safe GET navigation
+    return
+
 s3 = boto3.client(
     "s3",
     region_name=os.getenv("AWS_REGION"),
@@ -1698,7 +1703,7 @@ async def get_document_status(
     )
 
 
-@app.get("/documents/download/{task_id}")
+@app.get("/documents/download/{task_id}", dependencies=[Depends(optional_csrf)])
 async def download_document(
     task_id: str,
     current_user: models.User = Depends(get_current_active_user),
