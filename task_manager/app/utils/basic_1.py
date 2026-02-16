@@ -192,7 +192,7 @@ def add_college_header_stacked(doc, logo_path):
     
     logo_run = logo_para.add_run()
     # Using 'r' prefix for the path string is safest for Windows
-    logo_run.add_picture(logo_path, width=Inches(0.9)) 
+    logo_run.add_picture(str(logo_path), width=Inches(0.9)) 
     
     # 3. ADD THE TEXT (Below Logo, Center)
     header_lines = [
