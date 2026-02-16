@@ -39,9 +39,7 @@ UPLOAD_DIR = "uploads"
 UPLOAD_DOC_DIR = "uploaded_docs"
 DOC_GENERATION_DIR = "generated_docs"
 
-async def optional_csrf(request: Request):
-    # Do nothing — bypass for safe GET navigation
-    return
+
 
 s3 = boto3.client(
     "s3",
@@ -1703,10 +1701,10 @@ async def get_document_status(
     )
 
 
-@app.get("/documents/download/{task_id}", dependencies=[Depends(optional_csrf)])
+@app.get("/documents/download/{task_id}")
 async def download_document(
     task_id: str,
-    current_user: models.User = Depends(get_current_active_user),
+    current_user: models.User = Depends(get_current_read_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1751,17 +1749,7 @@ async def download_document(
     if not doc.generated_content:
         raise HTTPException(status_code=500, detail="File key missing")
 
-    # Generate secure temporary URL (5 minutes)
-    signed_url = s3.generate_presigned_url(
-        "get_object",
-        Params={
-            "Bucket": BUCKET,
-            "Key": doc.generated_content,
-            "ResponseContentDisposition": f'attachment; filename="{task_id}.docx"'
-        },
-        ExpiresIn=300  # seconds
-    )
-
+    signed_url = storage.presign_get_url(doc.generated_content, expires_seconds=300)
     return RedirectResponse(signed_url)
 
 
