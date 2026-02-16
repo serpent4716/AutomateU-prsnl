@@ -243,7 +243,7 @@ def add_college_header_stacked(doc, logo_path):
     # Add a little breathing room after the last line
     header.paragraphs[-1].paragraph_format.space_after = Pt(12)
 
-def create_document(output_path, details, num_problems, selected_fields):
+def create_document(details, num_problems, selected_fields):
     """Creates and populates the Word document from scratch."""
     doc = Document()
     
